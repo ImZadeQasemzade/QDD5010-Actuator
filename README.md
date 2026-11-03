@@ -2,6 +2,8 @@
 
 A quasi-direct-drive robot joint built from an MKS 5010 360 KV gimbal motor and a 3D-printed 6:1 planetary gearbox, run with SimpleFOC on an Arduino Mega.
 
+The full build and usage guide is [docs/QDD5010 V2 Guide.pdf](docs/QDD5010%20V2%20Guide.pdf).
+
 ## Hardware
 
 - Arduino Mega 2560 with a SimpleFOC Shield v2.0.4
@@ -15,6 +17,7 @@ A quasi-direct-drive robot joint built from an MKS 5010 360 KV gimbal motor and 
 | --- | --- |
 | `Code/QDD5010/QDD5010.ino` | Firmware: FOC current control with feedforward, angle / speed / torque modes, serial commands and telemetry |
 | `Code/WebApp/` | Browser console: commands, live charts, a 3D view, contact detection and torque calibration |
+| `docs/QDD5010 V2 Guide.pdf` | Full build and usage guide: parts, assembly, wiring, firmware, web console, tuning, test results and torque calibration |
 | `CAD/V2/` | FreeCAD model of the V2 gearbox and calibration arm, with 3MF files ready to print |
 
 ## Firmware

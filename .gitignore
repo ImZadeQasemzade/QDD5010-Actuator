@@ -1,5 +1,6 @@
 # Only the code and the V2 CAD are tracked
 *.pdf
+!docs/*.pdf
 *.gdoc
 *.FCBak
 *.FCStd1
