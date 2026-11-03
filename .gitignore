@@ -1,0 +1,10 @@
+# Only the code and the V2 CAD are tracked
+*.pdf
+*.gdoc
+*.FCBak
+*.FCStd1
+CAD/V1/
+CAD/Sample/
+CAD/V2/*.gdoc
+Code/.claude/
+desktop.ini

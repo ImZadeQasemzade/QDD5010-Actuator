@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QDD 5010 Console</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
+<script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<style>
+:root {
+  --bg: #0f1216; --panel: #171b21; --panel2: #1e232b; --line: #2a313b; --text: #e3e7ec; --dim: #8b95a3;
+  --accent: #4f8cff; --ok: #3fbf7f; --warn: #f0b429; --bad: #ef4b4b; --arm: #d8344a; --target: #8fb3ff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 600; }
+.pill { padding: 3px 9px; border-radius: 999px; background: var(--panel2); color: var(--dim); font-variant-numeric: tabular-nums; }
+.pill.on { color: var(--ok); } .pill.err { color: var(--bad); }
+button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.stop { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 700; padding: 6px 18px; }
+button:disabled { opacity: .45; cursor: default; }
+input[type=number], input[type=text] { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; font: inherit; width: 70px; }
+input[type=text] { width: 100%; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.spacer { flex: 1; }
+main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 330px; gap: 10px; padding: 10px; height: calc(100vh - 50px); }
+.col { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.row { display: flex; align-items: center; gap: 6px; margin: 6px 0; flex-wrap: wrap; }
+.row label { color: var(--dim); min-width: 64px; }
+.btns { display: flex; gap: 4px; flex-wrap: wrap; }
+.btns button { padding: 3px 7px; }
+.big { font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.small { color: var(--dim); font-size: 12px; }
+#view3d { position: relative; flex: 1 1 45%; min-height: 260px; border-radius: 8px; overflow: hidden; background: #12161b; border: 1px solid var(--line); }
+#view3d canvas { display: block; }
+#hud { position: absolute; left: 10px; top: 8px; pointer-events: none; font-variant-numeric: tabular-nums; }
+#hud .big { font-size: 26px; }
+#viewbtns { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; }
+#charts { flex: 1 1 55%; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.chart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px 0; flex: 1; min-height: 120px; position: relative; }
+.chart .ttl { position: absolute; left: 10px; top: 4px; font-size: 11px; color: var(--dim); z-index: 2; }
+.uplot { font-family: inherit; } .u-legend { font-size: 11px; color: var(--dim); } #chCur .u-legend .u-series:nth-child(4) { display: none; }
+#contactLight { width: 14px; height: 14px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+#contactLight.hit { background: var(--bad); box-shadow: 0 0 12px var(--bad); }
+#contactState { font-size: 20px; font-weight: 700; }
+#events { max-height: 120px; overflow-y: auto; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+#log { height: 180px; overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 6px; font: 12px/1.35 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+#log .tx { color: var(--accent); } #log .sys { color: var(--warn); }
+table.cal { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.cal td, table.cal th { border-bottom: 1px solid var(--line); padding: 2px 3px; text-align: right; }
+table.cal th { color: var(--dim); font-weight: 500; }
+table.cal input { width: 56px; }
+.bar { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.warnbox { background: #2b2410; border: 1px solid #5c4a12; color: #f3d48a; border-radius: 6px; padding: 6px 8px; font-size: 12px; }
+@media (max-width: 1100px) { main { grid-template-columns: 1fr; height: auto; } .col { overflow: visible; } #view3d { min-height: 320px; } .chart { min-height: 160px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>QDD 5010 Console</h1>
+  <button id="btnConnect" class="primary">Connect</button>
+  <button id="btnDemo">Simulator</button>
+  <span id="stConn" class="pill">Not connected</span>
+  <span id="stHz" class="pill">— Hz</span>
+  <span id="stMode" class="pill">mode —</span>
+  <span class="spacer"></span>
+  <button id="btnEnable">Enable</button>
+  <button id="btnStop" class="stop" title="Esc">STOP</button>
+</header>
+
+<main>
+  <!-- left: commands -->
+  <section class="col">
+    <div class="card">
+      <h2>Output angle</h2>
+      <div class="row"><input id="angSlider" type="range" min="-180" max="180" step="1" value="0"></div>
+      <div class="row"><input id="angVal" type="number" value="0" step="1"> <span class="small">deg</span>
+        <button id="angGo" class="primary">Go</button><button id="btnZero" title="Make the current position zero">Set zero</button></div>
+      <div class="btns"><button data-ang="-90">−90</button><button data-ang="-45">−45</button><button data-ang="0">0</button><button data-ang="45">45</button><button data-ang="90">90</button></div>
+    </div>
+    <div class="card">
+      <h2>Output speed</h2>
+      <div class="row"><input id="spdSlider" type="range" min="-30" max="30" step="0.5" value="0"></div>
+      <div class="row"><input id="spdVal" type="number" value="5" step="0.5"> <span class="small">RPM</span>
+        <button id="spdGo" class="primary">Spin</button><button id="spdStop">Stop</button></div>
+    </div>
+    <div class="card">
+      <h2>Torque</h2>
+      <div class="row"><input id="trqSlider" type="range" min="-1.5" max="1.5" step="0.05" value="0"></div>
+      <div class="row"><input id="trqVal" type="number" value="0.3" step="0.05"> <span class="small">A</span>
+        <button id="trqGo" class="primary">Push</button><button id="trqStop">Release</button></div>
+      <div class="small" id="trqHint">≈ 0.036 N·m at the output</div>
+    </div>
+    <div class="card">
+      <h2>Limits</h2>
+      <div class="row"><label>Current cap</label><input id="capC" type="number" value="2" step="0.1" min="0" max="4"> A <button id="capCGo">Set</button></div>
+      <div class="row"><label>Voltage cap</label><input id="capV" type="number" value="1.5" step="0.1" min="0" max="3"> V <button id="capVGo">Set</button></div>
+      <div class="small">Raise both together (current max 4 A, voltage max 3 V). Reset at power-up.</div>
+    </div>
+    <div class="card">
+      <h2>Settings</h2>
+      <div class="row"><label>Kt output</label><input id="setKt" type="number" step="0.001" value="0.12"> N·m/A</div>
+      <div class="row"><label>Lever</label><input id="setLever" type="number" step="1" value="100"> mm</div>
+      <div class="row"><label><input id="setFlip" type="checkbox"> Flip 3D direction</label></div>
+      <div class="row"><label><input id="setHoriz" type="checkbox"> Axis horizontal (on its side)</label></div>
+      <div class="row"><button id="btnRec">Record CSV</button><span class="small" id="recInfo"></span></div>
+    </div>
+  </section>
+
+  <!-- center: 3D + charts -->
+  <section class="col" style="overflow:hidden">
+    <div id="view3d">
+      <div id="hud"><div class="small">Output</div><div class="big" id="hudAng">—</div>
+        <div class="small" id="hudSub">target —</div></div>
+      <div id="viewbtns"><button id="viewIso">3D</button><button id="viewTop">Top</button><button id="viewSide">Side</button></div>
+    </div>
+    <div id="charts">
+      <div class="chart"><span class="ttl">Output angle (deg)</span><div id="chAng"></div></div>
+      <div class="chart"><span class="ttl">Motor current (A)</span><div id="chCur"></div></div>
+      <div class="chart"><span class="ttl">Output speed (RPM) · external torque (N·m)</span><div id="chTrq"></div></div>
+    </div>
+  </section>
+
+  <!-- right: contact, calibration, console -->
+  <section class="col">
+    <div class="card">
+      <h2><span id="contactLight"></span>Contact</h2>
+      <div class="row"><span id="contactState">FREE</span><span class="spacer"></span>
+        <span class="big" id="extTorque">0.000</span><span class="small">N·m</span></div>
+      <div class="small" id="extForce">0 g at the lever tip</div>
+      <div class="row"><label>Threshold</label><input id="thr" type="number" step="0.01" value="0.25"> A
+        <label style="min-width:0"><input id="chkDetect" type="checkbox" checked> on</label></div>
+      <div class="row"><button id="btnLearn">Learn free motion</button><button id="btnLearnAbort" disabled>Abort</button></div>
+      <div class="bar"><div id="learnBar"></div></div>
+      <div class="small" id="learnInfo">Not learned: using a flat 0.30 A friction model.</div>
+      <div id="events"></div>
+    </div>
+    <div class="card">
+      <h2>Torque calibration</h2>
+      <div class="small">Arm level on a kitchen scale, nub at the lever length. Type E0 (STOP), tare, then Enable and step through the rows: Apply, wait, type the reading, Save.</div>
+      <div class="row"><label style="min-width:0"><input id="calNeg" type="checkbox"> push with negative current (if the arm lifts off the scale)</label></div>
+      <table class="cal" id="calTable"><thead><tr><th>A</th><th></th><th>Iq meas</th><th>g</th><th></th><th>N·m/A</th></tr></thead><tbody></tbody></table>
+      <div class="row"><span class="small" id="calFit">No readings yet.</span><span class="spacer"></span><button id="calUse" disabled>Use Kt</button><button id="calClear">Clear</button></div>
+    </div>
+    <div class="card">
+      <h2>Console</h2>
+      <div id="log"></div>
+      <div class="row"><input id="cmdIn" type="text" placeholder="Command, e.g. B30, G, H"></div>
+      <div class="row"><label style="min-width:0"><input id="chkShowTel" type="checkbox"> show telemetry lines</label></div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const GEAR = 6;
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('qdd5010.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('qdd5010.' + k, JSON.stringify(v)); } catch {} }
+};
+
+// ---------------------------------------------------------------- settings
+const S = {
+  kt: store.get('kt', 0.12), lever: store.get('lever', 100), flip: store.get('flip', false), horiz: store.get('horiz', false),
+  thr: store.get('thr', 0.25), model: store.get('model', null)   // learned friction map + inertia
+};
+$('setKt').value = S.kt; $('setLever').value = S.lever; $('setFlip').checked = S.flip; $('setHoriz').checked = S.horiz; $('thr').value = S.thr;
+for (const [id, key, parse] of [['setKt', 'kt', parseFloat], ['setLever', 'lever', parseFloat], ['thr', 'thr', parseFloat]])
+  $(id).addEventListener('change', () => { const v = parse($(id).value); if (isFinite(v)) { S[key] = v; store.set(key, v); updateTrqHint(); } });
+$('setFlip').addEventListener('change', () => { S.flip = $('setFlip').checked; store.set('flip', S.flip); });
+$('setHoriz').addEventListener('change', () => { S.horiz = $('setHoriz').checked; store.set('horiz', S.horiz); orientModel(); });
+if (S.model) $('learnInfo').textContent = modelSummary(S.model);
+
+// ---------------------------------------------------------------- log
+const logEl = $('log');
+function log(text, cls = '') {
+  const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = text;
+  logEl.appendChild(d); while (logEl.childNodes.length > 400) logEl.removeChild(logEl.firstChild);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ---------------------------------------------------------------- transport (Web Serial or simulator)
+// Both expose write(line) and deliver lines to onLine(); the rest of the app never knows which one it has.
+let link = null;
+const TEL_RE = /Hz: (\d+)\tAngle: (\S+) deg\tVel: (\S+) RPM\tIq set: (\S+) A\tIq meas: (\S+) A\tId: (\S+) A\tUq: (\S+)\tUd: (\S+)\tOut: (\S+) deg/;
+
+class SerialLink {
+  async open() {
+    this.port = await navigator.serial.requestPort();
+    await this.port.open({ baudRate: 115200 });           // opening toggles DTR, which resets the Mega
+    this.writer = this.port.writable.getWriter();
+    this.enc = new TextEncoder();
+    this.closed = false;
+    this.readLoop();
+  }
+  async readLoop() {
+    const dec = new TextDecoder(); let buf = '';
+    while (!this.closed && this.port.readable) {
+      this.reader = this.port.readable.getReader();
+      try {
+        for (;;) {
+          const { value, done } = await this.reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i; while ((i = buf.indexOf('\n')) >= 0) { onLine(buf.slice(0, i).replace(/\r$/, '')); buf = buf.slice(i + 1); }
+        }
+      } catch (e) { if (!this.closed) log('Serial read error: ' + e.message, 'sys'); }
+      finally { this.reader.releaseLock(); }
+      if (!this.closed) { onDisconnect('Board disconnected'); break; }
+    }
+  }
+  write(line) { return this.writer.write(this.enc.encode(line + '\n')); }
+  async close() {
+    this.closed = true;
+    try { await this.reader?.cancel(); } catch {}
+    try { this.writer.releaseLock(); } catch {}
+    try { await this.port.close(); } catch {}
+  }
+}
+
+// A rough model of the real joint, speaking the same text protocol as the firmware. Includes the V2 gearbox's
+// tighter zone (output 90-180 deg) and an optional virtual wall, so contact detection can be tried without hardware.
+class SimLink {
+  async open() {
+    const st = this.st = { th: 0, w: 0, en: true, mode: 'angle', target: 0, ilim: 2, vcap: 1.5, tel: false, integ: 0, isp: 0, iq: 0, wallOn: true };
+    this.t = 0; this.lastTel = 0; this.loops = 0;
+    setTimeout(() => { ['', 'MOT: Init', 'MOT: Enable driver.', 'MOT: Align current sense.', 'MOT: Success: 1', 'MOT: Ready.', '',
+      '=== 5010 QDD Ready (angle mode, holding position) ===', '(simulator: virtual wall at output +75 deg, type W to toggle)'].forEach(l => onLine(l)); }, 600);
+    this.timer = setInterval(() => this.step(), 10);
+  }
+  fric(outDeg) {                       // output-angle-dependent friction current, like the measured V2 gearbox
+    const a = ((outDeg % 360) + 360) % 360;
+    return 0.22 + (a > 90 && a < 180 ? 0.25 * Math.sin((a - 90) * Math.PI / 90) : 0);
+  }
+  step() {
+    const st = this.st, dt = 0.001, KT = 0.0195, J = 1.6e-5;
+    for (let k = 0; k < 10; k++) {
+      const out = st.th / GEAR * 180 / Math.PI;
+      let isp = 0;
+      if (st.en) {
+        if (st.mode === 'torque') isp = st.target;
+        else {
+          const wsp = st.mode === 'angle' ? Math.max(-20, Math.min(20, 15 * (st.target - st.th))) : st.target;
+          const e = wsp - st.w; st.integ += e * dt; st.integ = Math.max(-2, Math.min(2, st.integ));
+          isp = 0.1 * e + 1.0 * st.integ;
+        }
+        isp = Math.max(-st.ilim, Math.min(st.ilim, isp));
+        const imax = st.vcap / 0.69; isp = Math.max(-imax, Math.min(imax, isp));
+      } else st.integ = 0;
+      st.isp = isp;
+      let tauExt = 0;
+      if (st.wallOn && out > 75) tauExt = -(out - 75) * 0.02 / GEAR - st.w * 0.0004;   // stiff-ish wall, output N·m → motor
+      const tauM = isp * KT + tauExt, tauF = this.fric(out) * KT;
+      if (Math.abs(st.w) < 0.05 && Math.abs(tauM) <= tauF) st.w = 0;
+      else st.w += (tauM - Math.sign(st.w || tauM) * tauF) / J * dt;
+      st.th += st.w * dt;
+      this.loops++;
+    }
+    st.iq = st.isp + (Math.random() - 0.5) * 0.25;
+    this.t += 10;
+    if (st.tel && this.t - this.lastTel >= 50) {
+      const ang = st.th * 180 / Math.PI, f = (v, p) => v.toFixed(p);
+      onLine(`Hz: ${370 + Math.round(Math.random() * 20)}\tAngle: ${f(ang, 2)} deg\tVel: ${f(st.w * 60 / (2 * Math.PI), 1)} RPM\tIq set: ${f(st.isp, 2)} A\tIq meas: ${f(st.iq, 2)} A\tId: ${f((Math.random() - .5) * .2, 2)} A\tUq: ${f(st.isp * 0.69, 3)}\tUd: 0.000\tOut: ${f(ang / GEAR, 2)} deg`);
+      this.lastTel = this.t; this.loops = 0;
+    }
+  }
+  write(line) {
+    const st = this.st, c = line.trim().toUpperCase(), L = c[0], v = parseFloat(c.slice(1));
+    const say = s => setTimeout(() => onLine(s), 5);
+    switch (L) {
+      case 'B': st.mode = 'angle'; st.target = v * GEAR * Math.PI / 180; say(''); say(`Angle mode, output target: ${v.toFixed(2)} deg`); break;
+      case 'A': st.mode = 'angle'; st.target = v * Math.PI / 180; say(`Angle mode, target: ${v.toFixed(2)} deg`); break;
+      case 'S': st.mode = 'velocity'; st.target = v * GEAR * 2 * Math.PI / 60; say(`Velocity mode, output target: ${v.toFixed(2)} RPM`); break;
+      case 'R': st.mode = 'velocity'; st.target = v * 2 * Math.PI / 60; say(`Velocity mode, target: ${v.toFixed(2)} RPM`); break;
+      case 'T': st.mode = 'torque'; st.target = v; say(`Torque mode, target current: ${v.toFixed(2)} A (est.)`); break;
+      case 'Z': if (st.mode === 'angle') st.target -= st.th; st.th = 0; say('Output zero set here'); break;
+      case 'E': st.en = !!v; say(st.en ? 'Motor ENABLED' : 'Motor DISABLED'); break;
+      case 'M': st.tel = !st.tel; break;
+      case 'C': st.ilim = Math.max(0, Math.min(4, v)); say(`Current limit: ${st.ilim.toFixed(2)} A`); break;
+      case 'Q': if (c[1] === 'V') st.vcap = Math.max(0, Math.min(3, parseFloat(c.slice(2)))); say(`Current loop ... Vcap=${st.vcap.toFixed(2)} (simulated)`); break;
+      case 'W': st.wallOn = !st.wallOn; say('Virtual wall ' + (st.wallOn ? 'on' : 'off')); break;
+      case 'G': say('VelP=0.1000 VelI=1.0000 VelD=0.0000 AngleP=15.0000 Ilim=' + st.ilim.toFixed(2) + ' (simulated)'); break;
+      default: say('(simulator ignores ' + c + ')');
+    }
+  }
+  close() { clearInterval(this.timer); }
+}
+
+// ---------------------------------------------------------------- connection state
+const app = { connected: false, sim: false, telSeen: 0, ready: false, mode: 'angle', target: 0, enabled: true, last: null };
+
+async function connect(sim) {
+  if (link) { await disconnect(); return; }
+  if (!sim && !('serial' in navigator)) { log('Web Serial is not available. Open this page in Chrome or Edge (desktop).', 'sys'); return; }
+  link = sim ? new SimLink() : new SerialLink();
+  try { await link.open(); }
+  catch (e) { log('Could not open: ' + e.message, 'sys'); link = null; return; }
+  app.connected = true; app.sim = sim; app.ready = false; app.telSeen = 0; app.mode = 'angle'; app.target = 0; app.enabled = true;
+  $('stConn').textContent = sim ? 'Simulator' : 'Connected'; $('stConn').className = 'pill on';
+  $('btnConnect').textContent = 'Disconnect'; $('btnDemo').disabled = true; if (sim) $('btnConnect').disabled = false;
+  log(sim ? 'Simulator started.' : 'Port open. The board resets and starts in about 3 s.', 'sys');
+  // telemetry is off at boot and M toggles it: turn it on once the board is ready, only if it is not already streaming
+  const t0 = performance.now();
+  const wait = setInterval(() => {
+    if (!link) return clearInterval(wait);
+    if (app.telSeen) return clearInterval(wait);
+    if (app.ready || performance.now() - t0 > 6000) { clearInterval(wait); setTimeout(() => { if (link && !app.telSeen) send('M', true); }, app.ready ? 1300 : 0); }
+  }, 100);
+}
+async function disconnect(reason) {
+  const l = link; link = null; app.connected = false;
+  if (l) await l.close();
+  $('stConn').textContent = reason || 'Not connected'; $('stConn').className = 'pill' + (reason ? ' err' : '');
+  $('btnConnect').textContent = 'Connect'; $('btnConnect').disabled = false; $('btnDemo').disabled = false;
+  $('stHz').textContent = '— Hz';
+}
+function onDisconnect(reason) { log(reason, 'sys'); disconnect(reason); }
+$('btnConnect').onclick = () => connect(false);
+$('btnDemo').onclick = () => connect(true);
+
+function send(cmd, quiet) {
+  if (!link) { log('Not connected', 'sys'); return; }
+  link.write(cmd);
+  log('> ' + cmd + (quiet ? '  (telemetry on)' : ''), 'tx');
+  const L = cmd.trim().toUpperCase()[0], v = parseFloat(cmd.trim().slice(1));
+  if (L === 'B') { app.mode = 'angle'; app.target = v; app.cmdTime = performance.now(); }
+  else if (L === 'A') { app.mode = 'angle'; app.target = v / GEAR; app.cmdTime = performance.now(); }
+  else if (L === 'S') { app.mode = 'velocity'; app.target = v; app.cmdTime = performance.now(); }
+  else if (L === 'R') { app.mode = 'velocity'; app.target = v / GEAR; app.cmdTime = performance.now(); }
+  else if (L === 'T') { app.mode = 'torque'; app.target = v; app.cmdTime = performance.now(); }
+  else if (L === 'Z') { if (app.mode === 'angle' && app.last) app.target -= app.last.out; }
+  else if (L === 'E') app.enabled = !!v;
+  updateModePill();
+}
+function updateModePill() {
+  const m = !app.enabled ? 'OFF (limp)' : app.mode === 'angle' ? `angle → ${fmt(app.target, 1)}°` :
+            app.mode === 'velocity' ? `speed → ${fmt(app.target, 1)} RPM` : `torque → ${fmt(app.target, 2)} A`;
+  $('stMode').textContent = m; $('btnEnable').textContent = app.enabled ? 'Enabled' : 'Enable';
+}
+const fmt = (v, p) => (isFinite(v) ? v : 0).toFixed(p);
+
+// ---------------------------------------------------------------- incoming lines
+const N = 400;                                   // 20 s at 20 Hz
+const buf = { t: [], out: [], tgt: [], isp: [], iqm: [], rpm: [], ext: [], thrU: [], thrL: [] };
+let t0 = null, lastT = null, lastV = null, accF = 0, recording = null;
+
+function onLine(line) {
+  const m = TEL_RE.exec(line);
+  if (!m) {
+    if (/Ready/.test(line)) app.ready = true;
+    if (/Motor DISABLED/.test(line)) { app.enabled = false; updateModePill(); }
+    if (/Motor ENABLED/.test(line)) { app.enabled = true; updateModePill(); }
+    if (line.trim()) log(line);
+    return;
+  }
+  app.telSeen++;
+  if ($('chkShowTel').checked) log(line);
+  const now = performance.now() / 1000;
+  const s = { hz: +m[1], ang: +m[2], rpm: +m[3] / GEAR, isp: +m[4], iqm: +m[5], id: +m[6], uq: +m[7], ud: +m[8], out: +m[9] };
+  // motor-side acceleration (rad/s^2) from successive speed samples, lightly filtered
+  const wm = +m[3] * 2 * Math.PI / 60;
+  if (lastT !== null && now > lastT) accF += 0.5 * ((wm - lastV) / (now - lastT) - accF);
+  lastT = now; lastV = wm; s.wm = wm; s.acc = accF;
+  app.last = s;
+  if (t0 === null) t0 = now;
+  const d = detect(s, now);
+  push('t', now - t0); push('out', s.out); push('tgt', app.mode === 'angle' && app.enabled ? app.target : null);
+  push('isp', s.isp); push('iqm', s.iqm); push('rpm', s.rpm); push('ext', d.ext);
+  push('thrU', d.base + d.thr); push('thrL', d.base - d.thr);
+  if (recording) recording.push([(now - t0).toFixed(3), s.hz, s.ang, (s.rpm * GEAR).toFixed(1), s.isp, s.iqm, s.id, s.uq, s.ud, s.out,
+    app.mode, app.mode === 'angle' ? app.target : '', d.ext.toFixed(4), d.contact ? 1 : 0].join(','));
+  learnSample(s);
+  calSample(s);
+  $('stHz').textContent = s.hz + ' Hz';
+  dirty = true;
+}
+function push(k, v) { const a = buf[k]; a.push(v); if (a.length > N) a.shift(); }
+
+// ---------------------------------------------------------------- contact detection
+// The firmware's current setpoint (Iq set) is the effort the controller needs; with feedforward it is also the real
+// current, and it is far less noisy than the measured Iq. Free motion needs: friction (learned per output angle and
+// direction) + inertia (J x acceleration). Whatever is left over is load from outside, and output torque = Kt x that.
+// At rest, friction can hold anything up to its own size, so only current beyond it counts.
+const det = { over: 0, contact: false, since: 0, ext: 0, filt: 0 };
+function fricAt(out, dir) {                       // signed current that free motion in direction dir needs
+  const M = S.model; if (!M) return dir >= 0 ? 0.30 : -0.30;
+  const b = Math.floor((((out % 360) + 360) % 360) / 10) % 36;
+  return dir >= 0 ? M.pos[b] : M.neg[b];
+}
+function detect(s, now) {
+  const M = S.model, J = M ? M.J : 0;
+  const moving = Math.abs(s.rpm) > 1.5;          // below this the friction direction is not reliable
+  let base, resid;
+  if (app.mode === 'torque' || !app.enabled) {
+    // in torque mode the current is whatever was asked for; a push that stops the arm is the contact sign
+    base = 0;
+    const blocked = app.enabled && Math.abs(app.target) > Math.abs(fricAt(s.out, Math.sign(app.target))) + 0.05 && !moving;
+    resid = blocked ? s.isp - fricAt(s.out, Math.sign(s.isp)) : 0;
+  } else if (moving) {
+    base = fricAt(s.out, Math.sign(s.wm)) + J * s.acc;
+    resid = s.isp - base;
+  } else {
+    const f = Math.max(Math.abs(fricAt(s.out, 1)), Math.abs(fricAt(s.out, -1)));
+    base = J * s.acc;
+    const r = s.isp - base;
+    resid = Math.sign(r) * Math.max(0, Math.abs(r) - f);
+  }
+  det.filt += 0.5 * (resid - det.filt);
+  // right after a new command the joint accelerates hard and the 20 Hz speed samples lag; widen the band for 0.6 s,
+  // and whenever the current is swinging (braking at the end of a move). A steady push keeps a steady current.
+  det.swing = Math.max(Math.abs(s.isp - (det.prevI ?? s.isp)), (det.swing || 0) * 0.6); det.prevI = s.isp;
+  const thr = S.thr * (now * 1000 - (app.cmdTime || 0) < 600 ? 2.5 : 1) + 1.5 * det.swing;
+  const on = $('chkDetect').checked && Math.abs(det.filt) > thr;
+  det.over = on ? det.over + 1 : 0;
+  const wasContact = det.contact;
+  if (det.over >= 4) det.contact = true; else if (!on) det.contact = false;
+  // the motor pushes back against the outside load, so the external torque has the opposite sign
+  det.ext = -det.filt * S.kt;
+  if (det.contact && !wasContact) { det.since = now; contactEvent(s, det.ext); }
+  return { base: app.mode === 'torque' ? 0 : base, thr, ext: Math.abs(det.filt) > thr * 0.5 ? det.ext : 0, contact: det.contact };
+}
+function contactEvent(s, ext) {
+  const d = document.createElement('div');
+  const g = Math.abs(ext) / (S.lever / 1000) / 9.81 * 1000;
+  d.textContent = `${new Date().toLocaleTimeString()}  contact at ${fmt(s.out, 1)}°  ${fmt(ext, 3)} N·m (${g.toFixed(0)} g)`;
+  $('events').prepend(d);
+}
+
+// ---------------------------------------------------------------- learning free motion
+// Full turn each way at 5 RPM maps friction per 10 deg of output angle and direction; then steps of +-40 deg fit
+// the inertia term. The arm must be free to swing all the way round.
+let learn = null;
+$('btnLearn').onclick = async () => {
+  if (!link || !app.telSeen) { log('Connect first (telemetry must be running).', 'sys'); return; }
+  if (!confirm('Learning turns the output a full turn each way at 5 RPM, then steps ±40°. Make sure the arm can swing all the way round without touching anything.')) return;
+  const a0 = app.last.out;
+  learn = { phase: 'fric', samples: [], steps: [], abort: false };
+  $('btnLearn').disabled = true; $('btnLearnAbort').disabled = false;
+  const bar = p => $('learnBar').style.width = (p * 100).toFixed(0) + '%';
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const plan = [['S5', 13500, 'fric'], ['S-5', 13500, 'fric'], ['S0', 600, null], [`B${fmt(a0, 1)}`, 2000, null],
+                [`B${fmt(a0 + 40, 1)}`, 1500, 'step'], [`B${fmt(a0, 1)}`, 1500, 'step'], [`B${fmt(a0 - 40, 1)}`, 1500, 'step'], [`B${fmt(a0, 1)}`, 1500, 'step']];
+  const total = plan.reduce((a, p) => a + p[1], 0); let done = 0;
+  for (const [cmd, ms, phase] of plan) {
+    if (learn.abort) break;
+    learn.phase = phase; send(cmd);
+    const tEnd = performance.now() + ms;
+    while (performance.now() < tEnd && !learn.abort) { await sleep(100); bar((done + ms - (tEnd - performance.now())) / total); }
+    done += ms;
+  }
+  const L = learn; learn = null;
+  $('btnLearn').disabled = false; $('btnLearnAbort').disabled = true;
+  if (L.abort) { send('S0'); send(`B${fmt(a0, 1)}`); $('learnInfo').textContent = 'Learning aborted; old model kept.'; bar(0); return; }
+  const model = buildModel(L);
+  if (!model) { $('learnInfo').textContent = 'Not enough data; is telemetry running?'; return; }
+  S.model = model; store.set('model', model);
+  S.thr = model.thr; $('thr').value = model.thr.toFixed(2); store.set('thr', S.thr);
+  $('learnInfo').textContent = modelSummary(model);
+  log('Learned: ' + modelSummary(model), 'sys');
+};
+$('btnLearnAbort').onclick = () => { if (learn) learn.abort = true; };
+function learnSample(s) {
+  if (!learn || !learn.phase) return;
+  if (learn.phase === 'fric' && Math.abs(s.rpm) > 2) learn.samples.push(s);
+  if (learn.phase === 'step') learn.steps.push(s);
+}
+function buildModel(L) {
+  if (L.samples.length < 100) return null;
+  const pos = Array.from({ length: 36 }, () => []), neg = Array.from({ length: 36 }, () => []);
+  for (const s of L.samples) {
+    const b = Math.floor((((s.out % 360) + 360) % 360) / 10) % 36;
+    (s.wm > 0 ? pos : neg)[b].push(s.isp);
+  }
+  const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+  const fill = (bins, sign) => {
+    const m = bins.map(a => a.length ? mean(a) : null), all = m.filter(v => v !== null), g = all.length ? mean(all) : sign * 0.3;
+    return m.map(v => v === null ? g : v);
+  };
+  const P = fill(pos, 1), Ng = fill(neg, -1);
+  // inertia from the step moves: residual after friction against acceleration, least squares through zero
+  let sar = 0, saa = 0;
+  for (const s of L.steps) {
+    if (Math.abs(s.rpm) < 1.5) continue;
+    const b = Math.floor((((s.out % 360) + 360) % 360) / 10) % 36;
+    const r = s.isp - (s.wm > 0 ? P[b] : Ng[b]);
+    sar += s.acc * r; saa += s.acc * s.acc;
+  }
+  const J = saa > 0 ? Math.max(0, sar / saa) : 0;
+  // noise of the free-motion residual sets the threshold
+  const res = L.samples.map(s => { const b = Math.floor((((s.out % 360) + 360) % 360) / 10) % 36; return s.isp - (s.wm > 0 ? P[b] : Ng[b]) - J * s.acc; });
+  const sd = Math.sqrt(mean(res.map(r => r * r)));
+  return { pos: P, neg: Ng, J, thr: Math.min(0.6, Math.max(0.2, 4 * sd)), sd, n: L.samples.length, date: new Date().toLocaleString() };
+}
+function modelSummary(M) {
+  const f = M.pos.concat(M.neg.map(v => -v)), lo = Math.min(...f), hi = Math.max(...f);
+  return `Learned ${M.date}: friction ${lo.toFixed(2)}–${hi.toFixed(2)} A, inertia ${(M.J * 1000).toFixed(3)} mA per rad/s², noise ±${M.sd.toFixed(2)} A → threshold ${M.thr.toFixed(2)} A.`;
+}
+
+// ---------------------------------------------------------------- torque calibration
+const CAL_STEPS = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 1.2, 1.0, 0.8, 0.6, 0.4, 0.2];
+let cal = store.get('cal', CAL_STEPS.map(a => ({ a, iq: null, g: null })));
+let calWin = [];                                   // last second of measured current
+function calSample(s) { calWin.push(s.iqm); if (calWin.length > 20) calWin.shift(); }
+function renderCal() {
+  const tb = $('calTable').querySelector('tbody'); tb.innerHTML = '';
+  cal.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const k = r.iq && r.g ? (r.g / 1000 * 9.81 * S.lever / 1000) / Math.abs(r.iq) : null;
+    tr.innerHTML = `<td>${r.a.toFixed(1)}${i > 6 ? '↓' : '↑'}</td><td><button data-apply="${i}">Apply</button></td>
+      <td>${r.iq === null ? '—' : r.iq.toFixed(2)}</td><td><input type="number" data-g="${i}" value="${r.g ?? ''}"></td>
+      <td><button data-save="${i}">Save</button></td><td>${k ? k.toFixed(3) : ''}</td>`;
+    tb.appendChild(tr);
+  });
+  const pts = cal.filter(r => r.iq && r.g);
+  if (pts.length >= 2) {
+    let sxy = 0, sxx = 0;
+    for (const r of pts) { const tau = r.g / 1000 * 9.81 * S.lever / 1000, i = Math.abs(r.iq); sxy += tau * i; sxx += i * i; }
+    cal.kt = sxy / sxx;
+    const up = pts.filter((r, j) => cal.indexOf(r) <= 6), dn = pts.filter(r => cal.indexOf(r) > 6);
+    let fr = '';
+    if (up.length && dn.length) {
+      const avg = a => a.reduce((x, r) => x + r.g / 1000 * 9.81 * S.lever / 1000 - cal.kt * Math.abs(r.iq), 0) / a.length;
+      fr = ` · friction ≈ ${(Math.abs(avg(dn) - avg(up)) / 2).toFixed(3)} N·m`;
+    }
+    $('calFit').textContent = `Kt = ${cal.kt.toFixed(3)} N·m/A from ${pts.length} readings${fr}`;
+    $('calUse').disabled = false;
+  } else { $('calFit').textContent = pts.length ? 'Need two or more readings.' : 'No readings yet.'; $('calUse').disabled = true; }
+}
+$('calTable').addEventListener('click', e => {
+  const a = e.target.dataset.apply, sv = e.target.dataset.save;
+  if (a !== undefined) send('T' + (cal[a].a * ($('calNeg').checked ? -1 : 1)).toFixed(2));
+  if (sv !== undefined) {
+    const g = parseFloat($('calTable').querySelector(`[data-g="${sv}"]`).value);
+    cal[sv].iq = calWin.length ? calWin.reduce((x, y) => x + y, 0) / calWin.length : null;
+    cal[sv].g = isFinite(g) ? g : null;
+    store.set('cal', cal.map(({ a, iq, g }) => ({ a, iq, g }))); renderCal();
+  }
+});
+$('calUse').onclick = () => { if (cal.kt) { S.kt = +cal.kt.toFixed(4); $('setKt').value = S.kt; store.set('kt', S.kt); updateTrqHint(); log(`Kt set to ${S.kt} N·m/A`, 'sys'); } };
+$('calClear').onclick = () => { cal = CAL_STEPS.map(a => ({ a, iq: null, g: null })); store.set('cal', cal); renderCal(); };
+renderCal();
+
+// ---------------------------------------------------------------- controls
+const bind = (slider, num) => { $(slider).oninput = () => $(num).value = $(slider).value; $(num).oninput = () => $(slider).value = $(num).value; };
+bind('angSlider', 'angVal'); bind('spdSlider', 'spdVal'); bind('trqSlider', 'trqVal');
+$('angGo').onclick = () => send('B' + $('angVal').value);
+$('angSlider').onchange = () => send('B' + $('angSlider').value);
+document.querySelectorAll('[data-ang]').forEach(b => b.onclick = () => { $('angVal').value = $('angSlider').value = b.dataset.ang; send('B' + b.dataset.ang); });
+$('btnZero').onclick = () => send('Z');
+$('spdGo').onclick = () => send('S' + $('spdVal').value);
+$('spdStop').onclick = () => { send('S0'); };
+$('trqGo').onclick = () => send('T' + $('trqVal').value);
+$('trqStop').onclick = () => send('T0');
+$('trqVal').addEventListener('input', updateTrqHint); $('trqSlider').addEventListener('input', updateTrqHint);
+function updateTrqHint() {
+  const a = parseFloat($('trqVal').value) || 0, tau = a * S.kt, g = Math.abs(tau) / (S.lever / 1000) / 9.81 * 1000;
+  $('trqHint').textContent = `≈ ${tau.toFixed(3)} N·m at the output (${g.toFixed(0)} g at ${S.lever} mm), before friction`;
+}
+updateTrqHint();
+$('capCGo').onclick = () => send('C' + $('capC').value);
+$('capVGo').onclick = () => send('QV' + $('capV').value);
+$('btnStop').onclick = () => { if (learn) learn.abort = true; send('E0'); };
+$('btnEnable').onclick = () => { const out = app.last ? app.last.out : 0; send('E1'); send('B' + fmt(out, 1)); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('btnStop').click(); });
+$('cmdIn').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.value.trim()) { send(e.target.value.trim()); e.target.value = ''; } });
+$('btnRec').onclick = () => {
+  if (!recording) { recording = []; $('btnRec').textContent = 'Stop + save'; $('recInfo').textContent = 'recording…'; return; }
+  const head = 't_s,hz,motor_deg,motor_rpm,iq_set_A,iq_meas_A,id_A,uq_V,ud_V,out_deg,mode,target,ext_Nm,contact';
+  const blob = new Blob([head + '\n' + recording.join('\n') + '\n'], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'qdd5010_' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.csv'; a.click();
+  $('recInfo').textContent = recording.length + ' rows saved'; recording = null; $('btnRec').textContent = 'Record CSV';
+};
+
+// ---------------------------------------------------------------- charts
+const css = getComputedStyle(document.documentElement), cv = n => css.getPropertyValue(n).trim();
+const axis = { stroke: cv('--dim'), grid: { stroke: '#232933', width: 1 }, ticks: { stroke: '#232933' } };
+function mkChart(el, series, opts = {}) {
+  return new uPlot({
+    width: 400, height: 100, cursor: { show: false }, legend: { show: true, live: false },
+    scales: { x: { time: false }, ...(opts.scales || {}) },
+    axes: [{ ...axis, size: 22 }, { ...axis, size: 44 }, ...(opts.axes || [])],
+    series: [{}, ...series]
+  }, [[], ...series.map(() => [])], $(el));
+}
+const charts = {
+  ang: mkChart('chAng', [{ label: 'output', stroke: cv('--arm'), width: 2 }, { label: 'target', stroke: cv('--target'), width: 1, dash: [5, 4] }]),
+  cur: mkChart('chCur', [{ label: 'Iq set', stroke: cv('--accent'), width: 2 }, { label: 'Iq meas', stroke: '#7a8696', width: 1 },
+                         { label: 'contact band', stroke: '#6b4e1a', width: 1, dash: [3, 3] }, { label: 'band', stroke: '#6b4e1a', width: 1, dash: [3, 3], class: 'nolegend' }]),
+  trq: mkChart('chTrq', [{ label: 'speed RPM', stroke: cv('--ok'), width: 1.5, scale: 'y' }, { label: 'ext N·m', stroke: cv('--bad'), width: 2, scale: 'n' }],
+               { scales: { n: { range: (u, lo, hi) => { const m = Math.max(0.02, Math.abs(lo), Math.abs(hi)); return [-m, m]; } } },
+                 axes: [{ ...axis, scale: 'n', side: 1, size: 44 }] })
+};
+function sizeCharts() {
+  for (const [k, el] of [['ang', 'chAng'], ['cur', 'chCur'], ['trq', 'chTrq']]) {
+    const box = $(el).parentElement; charts[k].setSize({ width: box.clientWidth - 12, height: Math.max(90, box.clientHeight - 30) });
+  }
+}
+let dirty = false;
+
+// ---------------------------------------------------------------- 3D view
+const view = $('view3d');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x12161b);
+const camera = new THREE.PerspectiveCamera(35, 1, 1, 3000);
+const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xdde6ff, 0x1a1d22, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(150, 250, 120); scene.add(sun);
+const grid = new THREE.GridHelper(400, 20, 0x2a313b, 0x1d232b); grid.position.y = -45; scene.add(grid);
+
+// Model units are mm, built with the output axis along +Y (three.js up). Dimensions follow the V2 CAD.
+const actuator = new THREE.Group(); scene.add(actuator);
+const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: .55, metalness: .1 });
+const cyl = (r, h, y, color, seg = 64) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), mat(color)); m.position.y = y + h / 2; actuator.add(m); return m; };
+const ring = (ri, ro, h, y, color) => {
+  const s = new THREE.Shape(); s.absarc(0, 0, ro, 0, Math.PI * 2); const hole = new THREE.Path(); hole.absarc(0, 0, ri, 0, Math.PI * 2, true); s.holes.push(hole);
+  const g = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 64 }); g.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(g, mat(color)); m.position.y = y; actuator.add(m); return m;
+};
+cyl(50, 53, -44.6, 0x9aa3ad);              // base
+cyl(52, 27.8, 8.5, 0xa9b2bc);              // ring gear body
+ring(36.8, 50, 3, 36.5, 0xe08a2e);         // bearing retainer
+const output = new THREE.Group(); actuator.add(output);
+const flange = new THREE.Mesh(new THREE.CylinderGeometry(35, 35, 8, 64), mat(0x3f6fd0)); flange.position.y = 40.5; output.add(flange);
+for (let k = 0; k < 6; k++) {                // flange screw heads, so rotation is visible even without the arm
+  const h = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, 1, 16), mat(0x22262c)); const a = Math.PI / 6 + k * Math.PI / 3;
+  h.position.set(22 * Math.cos(a), 44.3, 22 * Math.sin(a)); output.add(h);
+}
+function armShape() {                       // hub r20, taper to 12 mm wide at 35 mm, round tip at 100 mm
+  const s = new THREE.Shape(), hx = Math.sqrt(20 * 20 - 10 * 10);
+  s.moveTo(hx, -10); s.lineTo(35, -6); s.lineTo(100, -6); s.absarc(100, 0, 6, -Math.PI / 2, Math.PI / 2, false);
+  s.lineTo(35, 6); s.lineTo(hx, 10); s.absarc(0, 0, 20, Math.PI / 6, Math.PI * 2 - Math.PI / 6, false);
+  for (const x of [25, 50, 75, 100]) { const p = new THREE.Path(); p.absarc(x, 0, 2.1, 0, Math.PI * 2, true); s.holes.push(p); }
+  for (let k = 0; k < 4; k++) { const p = new THREE.Path(); p.absarc(12 * Math.cos(k * Math.PI / 2), 12 * Math.sin(k * Math.PI / 2), 1.7, 0, Math.PI * 2, true); s.holes.push(p); }
+  const g = new THREE.ExtrudeGeometry(s, { depth: 8, bevelEnabled: false, curveSegments: 24 });
+  g.rotateX(-Math.PI / 2);                   // shape X → world X, shape Y → world -Z, depth → +Y
+  return g;
+}
+const armGeo = armShape();
+const armMat = mat(0xd8344a);
+const arm = new THREE.Mesh(armGeo, armMat); arm.position.y = 44.5; output.add(arm);
+for (const z of [-6, 6]) {                    // contact nubs on both edges at 100 mm
+  const n = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 8, 20), armMat); n.position.set(100, 48.5, z); output.add(n);
+}
+const ghost = new THREE.Mesh(armGeo, new THREE.MeshBasicMaterial({ color: 0x8fb3ff, transparent: true, opacity: .22, depthWrite: false }));
+ghost.position.y = 44.6; actuator.add(ghost);
+// external-load arrow at the lever tip, tangent to the swing
+const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(100, 48.5, 0), 40, 0xef4b4b, 12, 8);
+arrow.visible = false; output.add(arrow);
+
+function orientModel() {
+  actuator.rotation.set(S.horiz ? -Math.PI / 2 : 0, 0, 0);
+  actuator.position.set(0, S.horiz ? 0 : 0, 0);
+  grid.position.y = S.horiz ? -55 : -45;
+}
+orientModel();
+function setView(kind) {
+  const d = 330;
+  if (kind === 'top') camera.position.set(0.01, d, 0);
+  else if (kind === 'side') camera.position.set(0, 20, d);
+  else camera.position.set(d * .55, d * .5, d * .6);
+  controls.target.set(30, 10, 0); controls.update();
+}
+setView('iso');
+$('viewIso').onclick = () => setView('iso'); $('viewTop').onclick = () => setView('top'); $('viewSide').onclick = () => setView('side');
+
+function size3d() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+new ResizeObserver(() => { size3d(); sizeCharts(); }).observe(document.querySelector('main'));
+size3d(); sizeCharts();
+
+// ---------------------------------------------------------------- frame loop
+let shownAng = 0;
+function frame() {
+  requestAnimationFrame(frame);
+  const s = app.last, dir = S.flip ? -1 : 1;
+  if (s) {
+    shownAng += (s.out - shownAng) * 0.5;           // telemetry is 20 Hz; ease between samples
+    output.rotation.y = dir * shownAng * Math.PI / 180;
+    ghost.visible = app.mode === 'angle' && app.enabled;
+    ghost.rotation.y = dir * app.target * Math.PI / 180;
+    const hit = det.contact;
+    armMat.emissive.setHex(hit ? 0x661018 : 0x000000);
+    const ext = det.ext, mag = Math.abs(ext);
+    arrow.visible = hit && mag > 1e-4;
+    if (arrow.visible) {
+      // positive output torque turns the arm toward +angle; tangent at the tip for that is -Z in arm space
+      const sgn = Math.sign(ext) * dir;
+      arrow.setDirection(new THREE.Vector3(0, 0, -sgn));
+      arrow.position.set(100, 48.5, sgn * 45);
+      arrow.setLength(Math.min(80, 20 + mag * 600), 12, 8);
+    }
+    $('hudAng').textContent = fmt(s.out, 1) + '°';
+    $('hudSub').textContent = app.mode === 'angle' ? `target ${fmt(app.target, 1)}°  ·  error ${fmt(s.out - app.target, 2)}°` :
+      app.mode === 'velocity' ? `${fmt(s.rpm, 1)} RPM (target ${fmt(app.target, 1)})` : `torque ${fmt(app.target, 2)} A`;
+    $('contactState').textContent = hit ? 'CONTACT' : 'FREE';
+    $('contactState').style.color = hit ? cv('--bad') : cv('--ok');
+    $('contactLight').className = hit ? 'hit' : '';
+    $('extTorque').textContent = fmt(ext, 3);
+    $('extForce').textContent = `${(mag / (S.lever / 1000) / 9.81 * 1000).toFixed(0)} g at the ${S.lever} mm lever tip`;
+  }
+  if (dirty) {
+    dirty = false;
+    charts.ang.setData([buf.t, buf.out, buf.tgt]);
+    charts.cur.setData([buf.t, buf.isp, buf.iqm, buf.thrU, buf.thrL]);
+    charts.trq.setData([buf.t, buf.rpm, buf.ext]);
+  }
+  controls.update(); renderer.render(scene, camera);
+}
+frame();
+updateModePill();
+window.__qdd = { app, det, S, buf, send, renderer, scene, camera };           // for debugging from the console
+</script>
+</body>
+</html>
