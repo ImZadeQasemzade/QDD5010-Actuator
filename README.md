@@ -47,3 +47,7 @@ Contact detection compares the measured current with what free motion needs (a l
 ## Printing
 
 The 3MF files in `CAD/V2/` are the printed parts: base, ring, sun, three planets, carrier, output flange, bearing retainer, rotor adapter and the 100 mm calibration arm (bolts to the flange with 4 × M3 × 10).
+
+## License
+
+MIT, see [LICENSE](LICENSE). It covers everything in this repository: the firmware, the web console, the CAD and the guide.
