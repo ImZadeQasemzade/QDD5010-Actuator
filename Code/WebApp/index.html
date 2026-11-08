@@ -28,7 +28,6 @@ button.stop { background: var(--bad); border-color: var(--bad); color: #fff; fon
 button:disabled { opacity: .45; cursor: default; }
 input[type=number], input[type=text] { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; font: inherit; width: 70px; }
 input[type=text] { width: 100%; }
-input[type=range] { width: 100%; accent-color: var(--accent); }
 .spacer { flex: 1; }
 main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 330px; gap: 10px; padding: 10px; height: calc(100vh - 50px); }
 .col { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
@@ -47,13 +46,13 @@ main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 330px; gap: 10
 #viewbtns { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; }
 #charts { flex: 1 1 55%; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .chart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px 0; flex: 1; min-height: 120px; position: relative; }
-.chart .ttl { position: absolute; left: 10px; top: 4px; font-size: 11px; color: var(--dim); z-index: 2; }
+.chart .ttl { position: absolute; left: 10px; top: 4px; font-size: 11px; color: var(--dim); z-index: 6; display: flex; align-items: center; }
 .uplot { font-family: inherit; } .u-legend { font-size: 11px; color: var(--dim); } #chCur .u-legend .u-series:nth-child(4) { display: none; }
 #contactLight { width: 14px; height: 14px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
 #contactLight.hit { background: var(--bad); box-shadow: 0 0 12px var(--bad); }
 #contactState { font-size: 20px; font-weight: 700; }
 #events { max-height: 120px; overflow-y: auto; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
-#log { height: 180px; overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 6px; font: 12px/1.35 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+#log { overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 6px; font: 12px/1.35 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
 #log .tx { color: var(--accent); } #log .sys { color: var(--warn); }
 table.cal { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 table.cal td, table.cal th { border-bottom: 1px solid var(--line); padding: 2px 3px; text-align: right; }
@@ -62,6 +61,21 @@ table.cal input { width: 56px; }
 .bar { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; }
 .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 .warnbox { background: #2b2410; border: 1px solid #5c4a12; color: #f3d48a; border-radius: 6px; padding: 6px 8px; font-size: 12px; }
+.card h2 .info, #viewbtns .info { margin-left: auto; }
+button.info { width: 18px; height: 18px; padding: 0; border-radius: 50%; font: italic 600 11px/16px Georgia, serif; color: var(--dim); text-transform: none; letter-spacing: 0; flex: none; }
+button.info.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+.ttl .info { margin-left: 6px; }
+.infotext { display: none; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 0 0 8px; font-size: 12px; line-height: 1.45; color: var(--text); }
+.infotext.show { display: block; }
+.infotext.floating { position: absolute; z-index: 5; top: 34px; right: 8px; left: 8px; max-width: 520px; margin-left: auto; }
+.infotext code { background: var(--bg); padding: 0 4px; border-radius: 3px; }
+.tabs { display: flex; gap: 2px; margin: 0 0 8px; border-bottom: 1px solid var(--line); }
+.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--dim); padding: 5px 12px; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.big-tabs { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0 6px; flex: none; }
+.col-pane { display: flex; flex-direction: column; gap: 10px; }
+.col-pane[hidden], .tabpane[hidden] { display: none; }
+#log { height: calc(100vh - 250px); min-height: 200px; }
 @media (max-width: 1100px) { main { grid-template-columns: 1fr; height: auto; } .col { overflow: visible; } #view3d { min-height: 320px; } .chart { min-height: 160px; } }
 </style>
 </head>
@@ -79,43 +93,51 @@ table.cal input { width: 56px; }
 </header>
 
 <main>
-  <!-- left: commands -->
+  <!-- left: drive + force -->
   <section class="col">
     <div class="card">
-      <h2>Output angle</h2>
-      <div class="row"><input id="angSlider" type="range" min="-180" max="180" step="1" value="0"></div>
-      <div class="row"><input id="angVal" type="number" value="0" step="1"> <span class="small">deg</span>
-        <button id="angGo" class="primary">Go</button><button id="btnZero" title="Make the current position zero">Set zero</button></div>
-      <div class="btns"><button data-ang="-90">−90</button><button data-ang="-45">−45</button><button data-ang="0">0</button><button data-ang="45">45</button><button data-ang="90">90</button></div>
+      <h2>Drive<button class="info" aria-label="About Drive">i</button></h2>
+      <div class="infotext">
+        Moves the joint. Pick a mode with the tabs; sending a command switches the motor into that mode.<br>
+        <b>Angle</b>: goes to an output angle and holds it (firmware <code>B</code>). <b>Set zero</b> makes the
+        current position read 0° (<code>Z</code>). It is forgotten at power-off, because the encoder only knows
+        the motor angle within one turn.<br>
+        <b>Speed</b>: spins the output continuously at an RPM (<code>S</code>). Stop holds speed 0.<br>
+        <b>Torque</b>: pushes with a set current in amps (<code>T</code>), whatever the arm does. Release sets 0 A:
+        the arm goes free but stays powered. The hint uses the calibration: on a load, torque ≈ Kt × (I − push friction).<br>
+        <b>Enable</b> (top bar) powers the motor and holds where the arm is. <b>STOP</b> or Esc cuts power so the arm goes limp.
+      </div>
+      <div class="tabs" id="driveTabs"><button data-tab="ang" class="on">Angle</button><button data-tab="spd">Speed</button><button data-tab="trq">Torque</button></div>
+      <div class="tabpane" data-pane="ang">
+        <div class="row"><input id="angVal" type="number" value="0" step="1"> <span class="small">deg</span>
+          <button id="angGo" class="primary">Go</button><button id="btnZero" title="Make the current position zero">Set zero</button></div>
+        <div class="btns"><button data-ang="-90">−90</button><button data-ang="-45">−45</button><button data-ang="0">0</button><button data-ang="45">45</button><button data-ang="90">90</button></div>
+      </div>
+      <div class="tabpane" data-pane="spd" hidden>
+        <div class="row"><input id="spdVal" type="number" value="5" step="0.5"> <span class="small">RPM</span>
+          <button id="spdGo" class="primary">Spin</button><button id="spdStop">Stop</button></div>
+      </div>
+      <div class="tabpane" data-pane="trq" hidden>
+        <div class="row"><input id="trqVal" type="number" value="1.5" step="0.1"> <span class="small">A</span>
+          <button id="trqGo" class="primary">Push</button><button id="trqStop">Release</button></div>
+        <div class="small" id="trqHint"></div>
+      </div>
     </div>
     <div class="card">
-      <h2>Output speed</h2>
-      <div class="row"><input id="spdSlider" type="range" min="-30" max="30" step="0.5" value="0"></div>
-      <div class="row"><input id="spdVal" type="number" value="5" step="0.5"> <span class="small">RPM</span>
-        <button id="spdGo" class="primary">Spin</button><button id="spdStop">Stop</button></div>
-    </div>
-    <div class="card">
-      <h2>Torque</h2>
-      <div class="row"><input id="trqSlider" type="range" min="-1.5" max="1.5" step="0.05" value="0"></div>
-      <div class="row"><input id="trqVal" type="number" value="0.3" step="0.05"> <span class="small">A</span>
-        <button id="trqGo" class="primary">Push</button><button id="trqStop">Release</button></div>
-      <div class="small" id="trqHint">≈ 0.036 N·m at the output</div>
-    </div>
-    <div class="card">
-      <h2>Limits</h2>
-      <div class="row"><label>Current cap</label><input id="capC" type="number" value="2" step="0.1" min="0" max="4"> A <button id="capCGo">Set</button></div>
-      <div class="row"><label>Voltage cap</label><input id="capV" type="number" value="1.5" step="0.1" min="0" max="3"> V <button id="capVGo">Set</button></div>
-      <div class="small">Raise both together (current max 4 A, voltage max 3 V). Reset at power-up.</div>
-    </div>
-    <div class="card">
-      <h2>Settings</h2>
-      <div class="row"><label>Kt output</label><input id="setKt" type="number" step="0.001" value="0.099"> N·m/A</div>
-      <div class="row"><label>Push friction</label><input id="setI0" type="number" step="0.01" value="0.87"> A</div>
-      <div class="small">Pushing on a load: torque ≈ Kt × (I − push friction). Calibrated 2026-11-08, 1–3.5 A.</div>
-      <div class="row"><label>Lever</label><input id="setLever" type="number" step="1" value="100"> mm</div>
-      <div class="row"><label><input id="setFlip" type="checkbox"> Flip 3D direction</label></div>
-      <div class="row"><label><input id="setHoriz" type="checkbox"> Axis horizontal (on its side)</label></div>
-      <div class="row"><button id="btnRec">Record CSV</button><span class="small" id="recInfo"></span></div>
+      <h2><span id="contactLight"></span>Force<button class="info" aria-label="About Force">i</button></h2>
+      <div class="infotext">
+        What is pressing on the arm from outside. <b>FREE</b> means the current is what free motion needs.
+        <b>CONTACT</b> means something is pushing back, and the numbers show how hard: output torque in N·m, and the
+        force in grams at the lever length (Setup → Calibration values → Lever).<br>
+        Held against a load, it uses the scale calibration, Kt × (I − push friction), good to about ±8 g at 100 mm
+        between 1 and 3.5 A. While moving, it compares the current with the friction learned by
+        <b>Learn free motion</b> (Setup → Contact detection), so run that first if you want contacts during moves.<br>
+        Every contact is listed below with its time, angle and force.
+      </div>
+      <div class="row"><span id="contactState">FREE</span><span class="spacer"></span>
+        <span class="big" id="extTorque">0.000</span><span class="small">N·m</span></div>
+      <div class="small" id="extForce">0 g at the lever tip</div>
+      <div id="events"></div>
     </div>
   </section>
 
@@ -124,41 +146,91 @@ table.cal input { width: 56px; }
     <div id="view3d">
       <div id="hud"><div class="small">Output</div><div class="big" id="hudAng">—</div>
         <div class="small" id="hudSub">target —</div></div>
-      <div id="viewbtns"><button id="viewIso">3D</button><button id="viewTop">Top</button><button id="viewSide">Side</button></div>
+      <div id="viewbtns"><button id="viewIso">3D</button><button id="viewTop">Top</button><button id="viewSide">Side</button>
+        <button class="info" aria-label="About the 3D view">i</button></div>
+      <div class="infotext floating">
+        The actuator with Arm A1 and the scale pusher, turned to the measured output angle, also when the motor is
+        off and you turn the arm by hand. The faint blue arm is the angle target. A red arrow at the pusher tip shows an
+        outside push. Drag to orbit, scroll to zoom. If it turns the wrong way, tick Setup → Display → Flip.
+        "No data" under the angle means telemetry has stopped arriving.
+      </div>
     </div>
     <div id="charts">
-      <div class="chart"><span class="ttl">Output angle (deg)</span><div id="chAng"></div></div>
-      <div class="chart"><span class="ttl">Motor current (A)</span><div id="chCur"></div></div>
-      <div class="chart"><span class="ttl">Output speed (RPM) · external torque (N·m)</span><div id="chTrq"></div></div>
+      <div class="chart"><span class="ttl">Output angle (deg)<button class="info" aria-label="About the angle chart">i</button></span>
+        <div class="infotext floating">Last 20 s. Solid: measured output angle. Dashed: the target in angle mode.</div><div id="chAng"></div></div>
+      <div class="chart"><span class="ttl">Motor current (A) · outside torque (N·m)<button class="info" aria-label="About the current chart">i</button></span>
+        <div class="infotext floating">Last 20 s. <b>Iq set</b>: the current the controller asks for (what the torque
+          estimate uses). <b>Iq meas</b>: what the sensors read (noisy, about ±0.3 A). Brown dashed: the band free motion
+          should stay inside; leaving it means contact. Red, right axis: outside torque on the output.</div><div id="chCur"></div></div>
     </div>
   </section>
 
-  <!-- right: contact, calibration, console -->
+  <!-- right: log / setup -->
   <section class="col">
-    <div class="card">
-      <h2><span id="contactLight"></span>Contact</h2>
-      <div class="row"><span id="contactState">FREE</span><span class="spacer"></span>
-        <span class="big" id="extTorque">0.000</span><span class="small">N·m</span></div>
-      <div class="small" id="extForce">0 g at the lever tip</div>
-      <div class="row"><label>Threshold</label><input id="thr" type="number" step="0.01" value="0.25"> A
-        <label style="min-width:0"><input id="chkDetect" type="checkbox" checked> on</label></div>
-      <div class="row"><button id="btnLearn">Learn free motion</button><button id="btnLearnAbort" disabled>Abort</button></div>
-      <div class="bar"><div id="learnBar"></div></div>
-      <div class="small" id="learnInfo">Not learned: using a flat 0.30 A friction model.</div>
-      <div id="events"></div>
+    <div class="tabs big-tabs" id="sideTabs"><button data-tab="log" class="on">Log</button><button data-tab="setup">Setup</button></div>
+    <div class="tabpane col-pane" data-pane="log">
+      <div class="card">
+        <h2>Log<button class="info" aria-label="About the log">i</button></h2>
+        <div class="infotext">Everything sent to the board (blue, starting with &gt;) and everything it replies.
+          Type a raw firmware command in the box and press Enter: <code>H</code> lists them all, <code>G</code> shows gains,
+          limits and calibration. Telemetry lines (20 per second) are hidden unless ticked.</div>
+        <div id="log"></div>
+        <div class="row"><input id="cmdIn" type="text" placeholder="Command, e.g. B30, G, H"></div>
+        <div class="row"><label style="min-width:0"><input id="chkShowTel" type="checkbox"> show telemetry lines</label></div>
+      </div>
     </div>
-    <div class="card">
-      <h2>Torque calibration</h2>
-      <div class="small">Tip on the scale at the lever length (scale on its edge against a wall, base clamped against twisting). STOP, tare, then Enable and go down the rows in order without letting the arm back off: Apply, wait, type the reading, Save. Rows above 2 A raise the limits to 4 A / 3 V; STOP puts them back. Prefilled with the 2026-11-08 calibration.</div>
-      <div class="row"><label style="min-width:0"><input id="calNeg" type="checkbox"> push with negative current (if the arm lifts off the scale)</label></div>
-      <table class="cal" id="calTable"><thead><tr><th>A</th><th></th><th>Iq meas</th><th>g</th><th></th><th>N·m</th></tr></thead><tbody></tbody></table>
-      <div class="row"><span class="small" id="calFit">No readings yet.</span><span class="spacer"></span><button id="calUse" disabled>Use fit</button><button id="calClear">Clear</button></div>
-    </div>
-    <div class="card">
-      <h2>Console</h2>
-      <div id="log"></div>
-      <div class="row"><input id="cmdIn" type="text" placeholder="Command, e.g. B30, G, H"></div>
-      <div class="row"><label style="min-width:0"><input id="chkShowTel" type="checkbox"> show telemetry lines</label></div>
+    <div class="tabpane col-pane" data-pane="setup" hidden>
+      <div class="card">
+        <h2>Limits<button class="info" aria-label="About Limits">i</button></h2>
+        <div class="infotext"><b>Current cap</b> limits the motor current in every mode (<code>C</code>, max 4 A).
+          <b>Voltage cap</b> limits the voltage on the winding (<code>QV</code>, max 3 V). It is a backstop and must stay
+          high enough for the current: about 0.7 V per amp cold, 0.85 V warm, plus a little for speed.
+          Power-up defaults: 3.5 A and 3.0 V. The driver chip has no heatsink, so keep long pushes near the cap short.</div>
+        <div class="row"><label>Current cap</label><input id="capC" type="number" value="3.5" step="0.1" min="0" max="4"> A <button id="capCGo">Set</button></div>
+        <div class="row"><label>Voltage cap</label><input id="capV" type="number" value="3" step="0.1" min="0" max="3"> V <button id="capVGo">Set</button></div>
+      </div>
+      <div class="card">
+        <h2>Calibration values<button class="info" aria-label="About calibration values">i</button></h2>
+        <div class="infotext"><b>Kt</b>: output torque per extra amp. <b>Push friction</b>: current the gearbox uses
+          up before any torque reaches a load. Together: torque ≈ Kt × (I − push friction) when pushing on something.
+          From the 2026-11-08 scale runs: 0.099 N·m/A and 0.87 A. <b>Lever</b>: distance from the axis to where the
+          force is read, used to turn N·m into grams (100 mm for Arm A1 with the pusher).</div>
+        <div class="row"><label>Kt output</label><input id="setKt" type="number" step="0.001" value="0.099"> N·m/A</div>
+        <div class="row"><label>Push friction</label><input id="setI0" type="number" step="0.01" value="0.87"> A</div>
+        <div class="row"><label>Lever</label><input id="setLever" type="number" step="1" value="100"> mm</div>
+      </div>
+      <div class="card">
+        <h2>Contact detection<button class="info" aria-label="About contact detection">i</button></h2>
+        <div class="infotext"><b>Learn free motion</b> turns the arm a full circle each way at 5 RPM, then makes a few
+          ±40° steps. From that it learns how much current free motion needs at every angle (friction) and when speeding
+          up (inertia). The arm must be free to swing all the way round. <b>Threshold</b> is how far above that the
+          current must go to count as contact; learning sets it from the noise. Untick <b>on</b> to stop flagging contacts.</div>
+        <div class="row"><label>Threshold</label><input id="thr" type="number" step="0.01" value="0.25"> A
+          <label style="min-width:0"><input id="chkDetect" type="checkbox" checked> on</label></div>
+        <div class="row"><button id="btnLearn">Learn free motion</button><button id="btnLearnAbort" disabled>Abort</button></div>
+        <div class="bar"><div id="learnBar"></div></div>
+        <div class="small" id="learnInfo">Not learned: using a flat 0.30 A friction model.</div>
+      </div>
+      <div class="card">
+        <h2>Torque calibration<button class="info" aria-label="About torque calibration">i</button></h2>
+        <div class="infotext">Measures Kt and push friction with a kitchen scale. Clamp the base so it cannot twist,
+          stand the scale on its edge against a wall and rest the pusher tip on it at the lever length. STOP, tare, then
+          Enable and go down the rows <b>in order</b> without letting the arm back off: Apply, wait a second, type the
+          grams, Save. Going only upward keeps friction always against the push, so the fit's offset is the push friction.
+          <b>Use fit</b> copies the result into Calibration values. Prefilled with the 2026-11-08 runs.</div>
+        <div class="row"><label style="min-width:0"><input id="calNeg" type="checkbox"> push with negative current (if the arm moves away from the scale)</label></div>
+        <table class="cal" id="calTable"><thead><tr><th>A</th><th></th><th>Iq meas</th><th>g</th><th></th><th>N·m</th></tr></thead><tbody></tbody></table>
+        <div class="row"><span class="small" id="calFit">No readings yet.</span><span class="spacer"></span><button id="calUse" disabled>Use fit</button><button id="calClear">Clear</button></div>
+      </div>
+      <div class="card">
+        <h2>Display and recording<button class="info" aria-label="About display and recording">i</button></h2>
+        <div class="infotext"><b>Flip</b> reverses the 3D arm's direction if it turns opposite to the real one.
+          <b>Axis horizontal</b> lays the 3D actuator on its side to match a sideways mount. <b>Record CSV</b> saves
+          every telemetry sample (angle, speed, currents, voltages, mode, target, outside torque, contact) until you press it again.</div>
+        <div class="row"><label style="min-width:0"><input id="setFlip" type="checkbox"> Flip 3D direction</label></div>
+        <div class="row"><label style="min-width:0"><input id="setHoriz" type="checkbox"> Axis horizontal (on its side)</label></div>
+        <div class="row"><button id="btnRec">Record CSV</button><span class="small" id="recInfo"></span></div>
+      </div>
     </div>
   </section>
 </main>
@@ -241,7 +313,7 @@ class SerialLink {
 // tighter zone (output 90-180 deg) and an optional virtual wall, so contact detection can be tried without hardware.
 class SimLink {
   async open() {
-    const st = this.st = { th: 0, w: 0, en: true, mode: 'angle', target: 0, ilim: 2, vcap: 1.5, tel: false, integ: 0, isp: 0, iq: 0, wallOn: true };
+    const st = this.st = { th: 0, w: 0, en: true, mode: 'angle', target: 0, ilim: 3.5, vcap: 3.0, tel: false, integ: 0, isp: 0, iq: 0, wallOn: true };
     this.t = 0; this.lastTel = 0; this.loops = 0;
     setTimeout(() => { ['', 'MOT: Init', 'MOT: Enable driver.', 'MOT: Align current sense.', 'MOT: Success: 1', 'MOT: Ready.', '',
       '=== 5010 QDD Ready (angle mode, holding position) ===', '(simulator: virtual wall at output +75 deg, type W to toggle)'].forEach(l => onLine(l)); }, 600);
@@ -372,7 +444,7 @@ function onLine(line) {
     if (line.trim()) log(line);
     return;
   }
-  app.telSeen++;
+  app.telSeen++; app.lastTelMs = performance.now();
   if ($('chkShowTel').checked) log(line);
   const now = performance.now() / 1000;
   const s = { hz: +m[1], ang: +m[2], rpm: +m[3] / GEAR, isp: +m[4], iqm: +m[5], id: +m[6], uq: +m[7], ud: +m[8], out: +m[9] };
@@ -520,7 +592,7 @@ function modelSummary(M) {
 
 // ---------------------------------------------------------------- torque calibration
 // Increasing current only, so friction always works against the push and the fit's offset is the push friction.
-// Above 2 A the firmware's default caps (2 A, 1.5 V) are raised to 4 A / 3 V; STOP and Clear put them back.
+// All steps fit inside the firmware's power-up caps (3.5 A, 3.0 V).
 // The fit uses the set current (what detect() uses); the measured column is shown to spot a hot winding.
 const CAL_STEPS = [0.5, 0.8, 1.1, 1.4, 1.7, 2.0, 2.5, 3.0, 3.5];
 // 2026-11-08: mean of three sweeps, 100 mm lever
@@ -529,9 +601,7 @@ const blankCal = () => CAL_STEPS.map(a => ({ a, iq: null, g: null }));
 let cal = store.get('cal2', null);
 if (!cal) { cal = CAL_STEPS.map((a, i) => ({ a, iq: CAL_REF.iq[i], g: CAL_REF.g[i] })); if (S.lever !== CAL_REF.lever) cal = blankCal(); }
 let calWin = [];                                   // last second of measured current
-let calLimitsUp = false;
 function calSample(s) { calWin.push(s.iqm); if (calWin.length > 20) calWin.shift(); }
-function restoreLimits() { if (calLimitsUp) { send('C2'); send('QV1.5'); calLimitsUp = false; } }
 function renderCal() {
   const tb = $('calTable').querySelector('tbody'); tb.innerHTML = '';
   const tauOf = r => r.g / 1000 * 9.81 * S.lever / 1000;
@@ -557,7 +627,6 @@ function renderCal() {
 $('calTable').addEventListener('click', e => {
   const a = e.target.dataset.apply, sv = e.target.dataset.save;
   if (a !== undefined) {
-    if (cal[a].a > 2 && !calLimitsUp) { send('C4'); send('QV3'); calLimitsUp = true; }
     send('T' + (cal[a].a * ($('calNeg').checked ? -1 : 1)).toFixed(2));
   }
   if (sv !== undefined) {
@@ -573,21 +642,35 @@ $('calUse').onclick = () => {
   $('setKt').value = S.kt; $('setI0').value = S.i0; store.set('kt', S.kt); store.set('i0', S.i0); updateTrqHint();
   log(`Kt set to ${S.kt} N·m/A, push friction ${S.i0} A`, 'sys');
 };
-$('calClear').onclick = () => { restoreLimits(); cal = blankCal(); store.set('cal2', cal); renderCal(); };
+$('calClear').onclick = () => { cal = blankCal(); store.set('cal2', cal); renderCal(); };
 renderCal();
 
+// ---------------------------------------------------------------- tabs and info panels
+function tabs(id, key) {
+  const bar = $(id), panes = [...bar.parentElement.querySelectorAll(':scope > .tabpane')];
+  const show = t => { for (const b of bar.children) b.classList.toggle('on', b.dataset.tab === t);
+    for (const p of panes) p.hidden = p.dataset.pane !== t; store.set(key, t); sizeLater(); };
+  bar.addEventListener('click', e => { if (e.target.dataset.tab) show(e.target.dataset.tab); });
+  show(store.get(key, bar.children[0].dataset.tab));
+}
+const sizeLater = () => setTimeout(() => { try { size3d(); sizeCharts(); } catch {} }, 0);
+// each "i" opens the explanation that follows it in its card, chart or view
+document.querySelectorAll('button.info').forEach(btn => {
+  const host = btn.closest('.card, .chart, #view3d'), box = host.querySelector('.infotext');
+  btn.onclick = () => { const on = !box.classList.contains('show'); box.classList.toggle('show', on); btn.classList.toggle('on', on); };
+});
+
 // ---------------------------------------------------------------- controls
-const bind = (slider, num) => { $(slider).oninput = () => $(num).value = $(slider).value; $(num).oninput = () => $(slider).value = $(num).value; };
-bind('angSlider', 'angVal'); bind('spdSlider', 'spdVal'); bind('trqSlider', 'trqVal');
 $('angGo').onclick = () => send('B' + $('angVal').value);
-$('angSlider').onchange = () => send('B' + $('angSlider').value);
-document.querySelectorAll('[data-ang]').forEach(b => b.onclick = () => { $('angVal').value = $('angSlider').value = b.dataset.ang; send('B' + b.dataset.ang); });
+document.querySelectorAll('[data-ang]').forEach(b => b.onclick = () => { $('angVal').value = b.dataset.ang; send('B' + b.dataset.ang); });
+for (const [id, go] of [['angVal', 'angGo'], ['spdVal', 'spdGo'], ['trqVal', 'trqGo']])
+  $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $(go).click(); });
 $('btnZero').onclick = () => send('Z');
 $('spdGo').onclick = () => send('S' + $('spdVal').value);
 $('spdStop').onclick = () => { send('S0'); };
 $('trqGo').onclick = () => send('T' + $('trqVal').value);
 $('trqStop').onclick = () => send('T0');
-$('trqVal').addEventListener('input', updateTrqHint); $('trqSlider').addEventListener('input', updateTrqHint);
+$('trqVal').addEventListener('input', updateTrqHint);
 function updateTrqHint() {
   const a = parseFloat($('trqVal').value) || 0, tau = Math.sign(a) * S.kt * Math.max(0, Math.abs(a) - S.i0);
   const g = Math.abs(tau) / (S.lever / 1000) / 9.81 * 1000;
@@ -596,7 +679,7 @@ function updateTrqHint() {
 updateTrqHint();
 $('capCGo').onclick = () => send('C' + $('capC').value);
 $('capVGo').onclick = () => send('QV' + $('capV').value);
-$('btnStop').onclick = () => { if (learn) learn.abort = true; send('E0'); restoreLimits(); };
+$('btnStop').onclick = () => { if (learn) learn.abort = true; send('E0'); };
 $('btnEnable').onclick = () => { const out = app.last ? app.last.out : 0; send('E1'); send('B' + fmt(out, 1)); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') $('btnStop').click(); });
 $('cmdIn').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.value.trim()) { send(e.target.value.trim()); e.target.value = ''; } });
@@ -623,13 +706,13 @@ function mkChart(el, series, opts = {}) {
 const charts = {
   ang: mkChart('chAng', [{ label: 'output', stroke: cv('--arm'), width: 2 }, { label: 'target', stroke: cv('--target'), width: 1, dash: [5, 4] }]),
   cur: mkChart('chCur', [{ label: 'Iq set', stroke: cv('--accent'), width: 2 }, { label: 'Iq meas', stroke: '#7a8696', width: 1 },
-                         { label: 'contact band', stroke: '#6b4e1a', width: 1, dash: [3, 3] }, { label: 'band', stroke: '#6b4e1a', width: 1, dash: [3, 3], class: 'nolegend' }]),
-  trq: mkChart('chTrq', [{ label: 'speed RPM', stroke: cv('--ok'), width: 1.5, scale: 'y' }, { label: 'ext N·m', stroke: cv('--bad'), width: 2, scale: 'n' }],
+                         { label: 'contact band', stroke: '#6b4e1a', width: 1, dash: [3, 3] }, { label: 'band', stroke: '#6b4e1a', width: 1, dash: [3, 3], class: 'nolegend' },
+                         { label: 'outside N·m', stroke: cv('--bad'), width: 2, scale: 'n' }],
                { scales: { n: { range: (u, lo, hi) => { const m = Math.max(0.02, Math.abs(lo), Math.abs(hi)); return [-m, m]; } } },
                  axes: [{ ...axis, scale: 'n', side: 1, size: 44 }] })
 };
 function sizeCharts() {
-  for (const [k, el] of [['ang', 'chAng'], ['cur', 'chCur'], ['trq', 'chTrq']]) {
+  for (const [k, el] of [['ang', 'chAng'], ['cur', 'chCur']]) {
     const box = $(el).parentElement; charts[k].setSize({ width: box.clientWidth - 12, height: Math.max(90, box.clientHeight - 30) });
   }
 }
@@ -665,26 +748,38 @@ for (let k = 0; k < 6; k++) {                // flange screw heads, so rotation 
   const h = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, 1, 16), mat(0x22262c)); const a = Math.PI / 6 + k * Math.PI / 3;
   h.position.set(22 * Math.cos(a), 44.3, 22 * Math.sin(a)); output.add(h);
 }
-function armShape() {                       // hub r20, taper to 12 mm wide at 35 mm, round tip at 100 mm
-  const s = new THREE.Shape(), hx = Math.sqrt(20 * 20 - 10 * 10);
-  s.moveTo(hx, -10); s.lineTo(35, -6); s.lineTo(100, -6); s.absarc(100, 0, 6, -Math.PI / 2, Math.PI / 2, false);
-  s.lineTo(35, 6); s.lineTo(hx, 10); s.absarc(0, 0, 20, Math.PI / 6, Math.PI * 2 - Math.PI / 6, false);
-  for (const x of [25, 50, 75, 100]) { const p = new THREE.Path(); p.absarc(x, 0, 2.1, 0, Math.PI * 2, true); s.holes.push(p); }
-  for (let k = 0; k < 4; k++) { const p = new THREE.Path(); p.absarc(12 * Math.cos(k * Math.PI / 2), 12 * Math.sin(k * Math.PI / 2), 1.7, 0, Math.PI * 2, true); s.holes.push(p); }
-  const g = new THREE.ExtrudeGeometry(s, { depth: 8, bevelEnabled: false, curveSegments: 24 });
-  g.rotateX(-Math.PI / 2);                   // shape X → world X, shape Y → world -Z, depth → +Y
-  return g;
+// Arm A1: 36 mm wide stadium, 6 mm thick, ends centred on the axis and at 100 mm, 4 x M3 on r12 at both ends,
+// load holes at 25/50/75/100 mm. Sits on the flange (top at 44.5 mm).
+const holes = (s, list) => { for (const [x, y, r] of list) { const p = new THREE.Path(); p.absarc(x, y, r, 0, Math.PI * 2, true); s.holes.push(p); } };
+const flat = (s, depth) => { const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 32 }); g.rotateX(-Math.PI / 2); return g; };
+const ring4 = (cx, r) => [0, 1, 2, 3].map(k => [cx + 12 * Math.cos(k * Math.PI / 2), 12 * Math.sin(k * Math.PI / 2), r]);
+function armShape() {                        // shape X → world X, shape Y → world -Z, depth → +Y
+  const s = new THREE.Shape();
+  s.moveTo(0, -18); s.lineTo(100, -18); s.absarc(100, 0, 18, -Math.PI / 2, Math.PI / 2, false);
+  s.lineTo(0, 18); s.absarc(0, 0, 18, Math.PI / 2, Math.PI * 1.5, false);
+  holes(s, [...ring4(0, 1.7), ...ring4(100, 1.7), ...[25, 50, 75].map(x => [x, 0, 2.1])]);
+  return flat(s, 6);
+}
+// Pusher: 6 mm plate under the arm tip, r18 boss, tapered neck, 12 mm finger out to 70 mm along +shape Y
+// (the direction a positive push turns the tip), rounded end = contact point, exactly at the 100 mm lever.
+function pusherShape() {
+  const s = new THREE.Shape(), a0 = Math.asin(8 / 18);
+  s.moveTo(100 + 14, 8); s.lineTo(100 + 6, 34); s.lineTo(100 + 6, 64); s.absarc(100, 64, 6, 0, Math.PI, false);
+  s.lineTo(100 - 6, 34); s.lineTo(100 - 14, 8);
+  s.absarc(100, 0, 18, Math.PI - a0 + 0.12, 2 * Math.PI + a0 - 0.12, false);
+  s.lineTo(100 + 14, 8);
+  holes(s, ring4(100, 1.45));
+  return flat(s, 6);
 }
 const armGeo = armShape();
-const armMat = mat(0xd8344a);
+const armMat = mat(0x2b2f36);
 const arm = new THREE.Mesh(armGeo, armMat); arm.position.y = 44.5; output.add(arm);
-for (const z of [-6, 6]) {                    // contact nubs on both edges at 100 mm
-  const n = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 8, 20), armMat); n.position.set(100, 48.5, z); output.add(n);
-}
+const pusher = new THREE.Mesh(pusherShape(), mat(0xe8892b)); pusher.position.y = 38.5; output.add(pusher);
+const PUSH_TIP = 70;                          // contact point, mm from the arm centre line
 const ghost = new THREE.Mesh(armGeo, new THREE.MeshBasicMaterial({ color: 0x8fb3ff, transparent: true, opacity: .22, depthWrite: false }));
 ghost.position.y = 44.6; actuator.add(ghost);
-// external-load arrow at the lever tip, tangent to the swing
-const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(100, 48.5, 0), 40, 0xef4b4b, 12, 8);
+// outside-load arrow at the pusher tip, tangent to the swing
+const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(100, 41.5, 0), 40, 0xef4b4b, 12, 8);
 arrow.visible = false; output.add(arrow);
 
 function orientModel() {
@@ -713,7 +808,7 @@ function frame() {
   requestAnimationFrame(frame);
   const s = app.last, dir = S.flip ? -1 : 1;
   if (s) {
-    shownAng += (s.out - shownAng) * 0.5;           // telemetry is 20 Hz; ease between samples
+    shownAng += (s.out - shownAng) * (app.enabled ? 0.5 : 1);           // telemetry is 20 Hz; ease between samples
     output.rotation.y = dir * shownAng * Math.PI / 180;
     ghost.visible = app.mode === 'angle' && app.enabled;
     ghost.rotation.y = dir * app.target * Math.PI / 180;
@@ -722,15 +817,19 @@ function frame() {
     const ext = det.ext, mag = Math.abs(ext);
     arrow.visible = hit && mag > 1e-4;
     if (arrow.visible) {
-      // positive output torque turns the arm toward +angle; tangent at the tip for that is -Z in arm space
-      const sgn = Math.sign(ext) * dir;
+      // positive output torque turns the tip toward -Z (the pusher side); the load pushes back the other way
+      const sgn = Math.sign(ext) * dir, len = Math.min(80, 20 + mag * 300);
+      const tipZ = sgn < 0 ? -PUSH_TIP : 18;   // ext < 0: the load resists a positive push, at the pusher tip
       arrow.setDirection(new THREE.Vector3(0, 0, -sgn));
-      arrow.position.set(100, 48.5, sgn * 45);
-      arrow.setLength(Math.min(80, 20 + mag * 600), 12, 8);
+      arrow.position.set(100, 41.5, sgn < 0 ? tipZ - len : tipZ + len);
+      arrow.setLength(len, 12, 8);
     }
     $('hudAng').textContent = fmt(s.out, 1) + '°';
+    const stale = performance.now() - (app.lastTelMs || 0) > 1500;
     $('hudSub').textContent = app.mode === 'angle' ? `target ${fmt(app.target, 1)}°  ·  error ${fmt(s.out - app.target, 2)}°` :
       app.mode === 'velocity' ? `${fmt(s.rpm, 1)} RPM (target ${fmt(app.target, 1)})` : `torque ${fmt(app.target, 2)} A`;
+    if (!app.enabled) $('hudSub').textContent = 'motor off: turn the arm by hand';
+    if (stale) $('hudSub').textContent = 'No data: telemetry stopped (type M in the log to turn it on)';
     $('contactState').textContent = hit ? 'CONTACT' : 'FREE';
     $('contactState').style.color = hit ? cv('--bad') : cv('--ok');
     $('contactLight').className = hit ? 'hit' : '';
@@ -740,13 +839,13 @@ function frame() {
   if (dirty) {
     dirty = false;
     charts.ang.setData([buf.t, buf.out, buf.tgt]);
-    charts.cur.setData([buf.t, buf.isp, buf.iqm, buf.thrU, buf.thrL]);
-    charts.trq.setData([buf.t, buf.rpm, buf.ext]);
+    charts.cur.setData([buf.t, buf.isp, buf.iqm, buf.thrU, buf.thrL, buf.ext]);
   }
   controls.update(); renderer.render(scene, camera);
 }
 frame();
 updateModePill();
+tabs('driveTabs', 'tabDrive'); tabs('sideTabs', 'tabSide');
 window.__qdd = { app, det, S, buf, send, renderer, scene, camera };           // for debugging from the console
 </script>
 </body>

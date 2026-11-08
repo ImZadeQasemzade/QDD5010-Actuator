@@ -289,12 +289,15 @@ void setup() {
   // foc_current: torque from the measured d/q phase currents (d held at 0). Needs the current sense linked above.
   // L0 switches back to the old estimate (which turned out to match the measured current within ~10%).
   motor.torque_controller = TorqueControlType::foc_current;
-  // Hard backstop independent of the current loop: 1.5V across the 0.12 ohm winding
-  motor.voltage_limit = 1.5;
+  // Voltage cap sized for the 3.5 A current limit below: 3.5 A x 0.69 ohm = 2.4 V at a stall (cold), ~3.0 V once the
+  // winding is warm (0.85 ohm seen at 4 A), plus back-EMF when moving. 3.0 V is also MAX_VOLTAGE_LIMIT, the shield's
+  // ceiling (~4.3 A stalled cold). Was 1.5 V with a 2 A limit until 2026-11-08.
+  motor.voltage_limit = 3.0;
   motor.controller = MotionControlType::angle;
 
-  // Real, measured amps. Shield sensing tops out near 5 A and the L6234 overheats above a few amps continuous.
-  motor.current_limit = 2.0;
+  // Real, measured amps. Shield sensing tops out near 5 A and the L6234 has no heatsink: keep long pushes near the
+  // limit short. Raised from 2.0 A on 2026-11-08 after the scale calibration ran cleanly up to 3.5-4 A.
+  motor.current_limit = 3.5;
   motor.velocity_limit = 20.0;
 
   // Current PI off: the feedforward (R*I + Ke*w, see ff_resistance) alone sets the voltage, and since R was measured
