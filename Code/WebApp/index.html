@@ -109,7 +109,9 @@ table.cal input { width: 56px; }
     </div>
     <div class="card">
       <h2>Settings</h2>
-      <div class="row"><label>Kt output</label><input id="setKt" type="number" step="0.001" value="0.12"> N·m/A</div>
+      <div class="row"><label>Kt output</label><input id="setKt" type="number" step="0.001" value="0.099"> N·m/A</div>
+      <div class="row"><label>Push friction</label><input id="setI0" type="number" step="0.01" value="0.87"> A</div>
+      <div class="small">Pushing on a load: torque ≈ Kt × (I − push friction). Calibrated 2026-11-08, 1–3.5 A.</div>
       <div class="row"><label>Lever</label><input id="setLever" type="number" step="1" value="100"> mm</div>
       <div class="row"><label><input id="setFlip" type="checkbox"> Flip 3D direction</label></div>
       <div class="row"><label><input id="setHoriz" type="checkbox"> Axis horizontal (on its side)</label></div>
@@ -147,10 +149,10 @@ table.cal input { width: 56px; }
     </div>
     <div class="card">
       <h2>Torque calibration</h2>
-      <div class="small">Arm level on a kitchen scale, nub at the lever length. Type E0 (STOP), tare, then Enable and step through the rows: Apply, wait, type the reading, Save.</div>
+      <div class="small">Tip on the scale at the lever length (scale on its edge against a wall, base clamped against twisting). STOP, tare, then Enable and go down the rows in order without letting the arm back off: Apply, wait, type the reading, Save. Rows above 2 A raise the limits to 4 A / 3 V; STOP puts them back. Prefilled with the 2026-11-08 calibration.</div>
       <div class="row"><label style="min-width:0"><input id="calNeg" type="checkbox"> push with negative current (if the arm lifts off the scale)</label></div>
-      <table class="cal" id="calTable"><thead><tr><th>A</th><th></th><th>Iq meas</th><th>g</th><th></th><th>N·m/A</th></tr></thead><tbody></tbody></table>
-      <div class="row"><span class="small" id="calFit">No readings yet.</span><span class="spacer"></span><button id="calUse" disabled>Use Kt</button><button id="calClear">Clear</button></div>
+      <table class="cal" id="calTable"><thead><tr><th>A</th><th></th><th>Iq meas</th><th>g</th><th></th><th>N·m</th></tr></thead><tbody></tbody></table>
+      <div class="row"><span class="small" id="calFit">No readings yet.</span><span class="spacer"></span><button id="calUse" disabled>Use fit</button><button id="calClear">Clear</button></div>
     </div>
     <div class="card">
       <h2>Console</h2>
@@ -173,12 +175,16 @@ const store = {
 };
 
 // ---------------------------------------------------------------- settings
+// Scale calibration 2026-11-08 (100 mm lever, 3 increasing sweeps, 1-3.5 A, against Iq set): pushing on a load,
+// output torque = 0.099 x (I - 0.87). Older saved Kt values (the 0.12 guess) are replaced once.
+const CAL_KT = 0.099, CAL_I0 = 0.87;
+if (store.get('calVer', 0) < 1) { store.set('kt', CAL_KT); store.set('i0', CAL_I0); store.set('calVer', 1); }
 const S = {
-  kt: store.get('kt', 0.12), lever: store.get('lever', 100), flip: store.get('flip', false), horiz: store.get('horiz', false),
-  thr: store.get('thr', 0.25), model: store.get('model', null)   // learned friction map + inertia
+  kt: store.get('kt', CAL_KT), i0: store.get('i0', CAL_I0), lever: store.get('lever', 100), flip: store.get('flip', false),
+  horiz: store.get('horiz', false), thr: store.get('thr', 0.25), model: store.get('model', null)   // learned friction map + inertia
 };
-$('setKt').value = S.kt; $('setLever').value = S.lever; $('setFlip').checked = S.flip; $('setHoriz').checked = S.horiz; $('thr').value = S.thr;
-for (const [id, key, parse] of [['setKt', 'kt', parseFloat], ['setLever', 'lever', parseFloat], ['thr', 'thr', parseFloat]])
+$('setKt').value = S.kt; $('setI0').value = S.i0; $('setLever').value = S.lever; $('setFlip').checked = S.flip; $('setHoriz').checked = S.horiz; $('thr').value = S.thr;
+for (const [id, key, parse] of [['setKt', 'kt', parseFloat], ['setI0', 'i0', parseFloat], ['setLever', 'lever', parseFloat], ['thr', 'thr', parseFloat]])
   $(id).addEventListener('change', () => { const v = parse($(id).value); if (isFinite(v)) { S[key] = v; store.set(key, v); updateTrqHint(); } });
 $('setFlip').addEventListener('change', () => { S.flip = $('setFlip').checked; store.set('flip', S.flip); });
 $('setHoriz').addEventListener('change', () => { S.horiz = $('setHoriz').checked; store.set('horiz', S.horiz); orientModel(); });
@@ -427,8 +433,11 @@ function detect(s, now) {
   det.over = on ? det.over + 1 : 0;
   const wasContact = det.contact;
   if (det.over >= 4) det.contact = true; else if (!on) det.contact = false;
-  // the motor pushes back against the outside load, so the external torque has the opposite sign
-  det.ext = -det.filt * S.kt;
+  // the motor pushes back against the outside load, so the external torque has the opposite sign. Held still against
+  // a load (torque mode, or angle mode at rest) the scale calibration applies: Kt x (I - push friction). While moving,
+  // the learned free-motion friction has already been taken out of the residual.
+  if (moving) det.ext = -det.filt * S.kt;
+  else { const r = s.isp - J * s.acc; det.ext = -Math.sign(r) * S.kt * Math.max(0, Math.abs(r) - S.i0); }
   if (det.contact && !wasContact) { det.since = now; contactEvent(s, det.ext); }
   return { base: app.mode === 'torque' ? 0 : base, thr, ext: Math.abs(det.filt) > thr * 0.5 ? det.ext : 0, contact: det.contact };
 }
@@ -510,47 +519,61 @@ function modelSummary(M) {
 }
 
 // ---------------------------------------------------------------- torque calibration
-const CAL_STEPS = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 1.2, 1.0, 0.8, 0.6, 0.4, 0.2];
-let cal = store.get('cal', CAL_STEPS.map(a => ({ a, iq: null, g: null })));
+// Increasing current only, so friction always works against the push and the fit's offset is the push friction.
+// Above 2 A the firmware's default caps (2 A, 1.5 V) are raised to 4 A / 3 V; STOP and Clear put them back.
+// The fit uses the set current (what detect() uses); the measured column is shown to spot a hot winding.
+const CAL_STEPS = [0.5, 0.8, 1.1, 1.4, 1.7, 2.0, 2.5, 3.0, 3.5];
+// 2026-11-08: mean of three sweeps, 100 mm lever
+const CAL_REF = { lever: 100, iq: [0.331, 0.603, 0.899, 1.295, 1.621, 1.940, 2.484, 2.864, 3.143], g: [1, 3, 12, 52, 90, 122, 173, 217, 256] };
+const blankCal = () => CAL_STEPS.map(a => ({ a, iq: null, g: null }));
+let cal = store.get('cal2', null);
+if (!cal) { cal = CAL_STEPS.map((a, i) => ({ a, iq: CAL_REF.iq[i], g: CAL_REF.g[i] })); if (S.lever !== CAL_REF.lever) cal = blankCal(); }
 let calWin = [];                                   // last second of measured current
+let calLimitsUp = false;
 function calSample(s) { calWin.push(s.iqm); if (calWin.length > 20) calWin.shift(); }
+function restoreLimits() { if (calLimitsUp) { send('C2'); send('QV1.5'); calLimitsUp = false; } }
 function renderCal() {
   const tb = $('calTable').querySelector('tbody'); tb.innerHTML = '';
+  const tauOf = r => r.g / 1000 * 9.81 * S.lever / 1000;
   cal.forEach((r, i) => {
     const tr = document.createElement('tr');
-    const k = r.iq && r.g ? (r.g / 1000 * 9.81 * S.lever / 1000) / Math.abs(r.iq) : null;
-    tr.innerHTML = `<td>${r.a.toFixed(1)}${i > 6 ? '↓' : '↑'}</td><td><button data-apply="${i}">Apply</button></td>
+    tr.innerHTML = `<td>${r.a.toFixed(1)}</td><td><button data-apply="${i}">Apply</button></td>
       <td>${r.iq === null ? '—' : r.iq.toFixed(2)}</td><td><input type="number" data-g="${i}" value="${r.g ?? ''}"></td>
-      <td><button data-save="${i}">Save</button></td><td>${k ? k.toFixed(3) : ''}</td>`;
+      <td><button data-save="${i}">Save</button></td><td>${r.g !== null ? tauOf(r).toFixed(3) : ''}</td>`;
     tb.appendChild(tr);
   });
-  const pts = cal.filter(r => r.iq && r.g);
+  // fit torque = k x I + b on the readings past the dead zone (> 1 A set)
+  const pts = cal.filter(r => r.g !== null && r.iq !== null && r.a >= 1.0);
   if (pts.length >= 2) {
+    const n = pts.length, mx = pts.reduce((x, r) => x + r.a, 0) / n, my = pts.reduce((x, r) => x + tauOf(r), 0) / n;
     let sxy = 0, sxx = 0;
-    for (const r of pts) { const tau = r.g / 1000 * 9.81 * S.lever / 1000, i = Math.abs(r.iq); sxy += tau * i; sxx += i * i; }
-    cal.kt = sxy / sxx;
-    const up = pts.filter((r, j) => cal.indexOf(r) <= 6), dn = pts.filter(r => cal.indexOf(r) > 6);
-    let fr = '';
-    if (up.length && dn.length) {
-      const avg = a => a.reduce((x, r) => x + r.g / 1000 * 9.81 * S.lever / 1000 - cal.kt * Math.abs(r.iq), 0) / a.length;
-      fr = ` · friction ≈ ${(Math.abs(avg(dn) - avg(up)) / 2).toFixed(3)} N·m`;
-    }
-    $('calFit').textContent = `Kt = ${cal.kt.toFixed(3)} N·m/A from ${pts.length} readings${fr}`;
-    $('calUse').disabled = false;
-  } else { $('calFit').textContent = pts.length ? 'Need two or more readings.' : 'No readings yet.'; $('calUse').disabled = true; }
+    for (const r of pts) { sxy += (r.a - mx) * (tauOf(r) - my); sxx += (r.a - mx) ** 2; }
+    cal.kt = sxy / sxx; cal.i0 = mx - my / cal.kt;
+    const rms = Math.sqrt(pts.reduce((x, r) => x + (tauOf(r) - cal.kt * (r.a - cal.i0)) ** 2, 0) / n);
+    $('calFit').textContent = `Kt = ${cal.kt.toFixed(3)} N·m/A, push friction ${cal.i0.toFixed(2)} A, ±${(rms / 9.81e-4 * 100 / S.lever).toFixed(0)} g (${n} readings ≥ 1 A)`;
+    $('calUse').disabled = !(cal.kt > 0 && cal.i0 >= 0);
+  } else { $('calFit').textContent = 'Need two or more readings at 1 A or above.'; $('calUse').disabled = true; }
 }
 $('calTable').addEventListener('click', e => {
   const a = e.target.dataset.apply, sv = e.target.dataset.save;
-  if (a !== undefined) send('T' + (cal[a].a * ($('calNeg').checked ? -1 : 1)).toFixed(2));
+  if (a !== undefined) {
+    if (cal[a].a > 2 && !calLimitsUp) { send('C4'); send('QV3'); calLimitsUp = true; }
+    send('T' + (cal[a].a * ($('calNeg').checked ? -1 : 1)).toFixed(2));
+  }
   if (sv !== undefined) {
     const g = parseFloat($('calTable').querySelector(`[data-g="${sv}"]`).value);
-    cal[sv].iq = calWin.length ? calWin.reduce((x, y) => x + y, 0) / calWin.length : null;
+    cal[sv].iq = calWin.length ? Math.abs(calWin.reduce((x, y) => x + y, 0) / calWin.length) : null;
     cal[sv].g = isFinite(g) ? g : null;
-    store.set('cal', cal.map(({ a, iq, g }) => ({ a, iq, g }))); renderCal();
+    store.set('cal2', cal.map(({ a, iq, g }) => ({ a, iq, g }))); renderCal();
   }
 });
-$('calUse').onclick = () => { if (cal.kt) { S.kt = +cal.kt.toFixed(4); $('setKt').value = S.kt; store.set('kt', S.kt); updateTrqHint(); log(`Kt set to ${S.kt} N·m/A`, 'sys'); } };
-$('calClear').onclick = () => { cal = CAL_STEPS.map(a => ({ a, iq: null, g: null })); store.set('cal', cal); renderCal(); };
+$('calUse').onclick = () => {
+  if (!cal.kt) return;
+  S.kt = +cal.kt.toFixed(4); S.i0 = +cal.i0.toFixed(3);
+  $('setKt').value = S.kt; $('setI0').value = S.i0; store.set('kt', S.kt); store.set('i0', S.i0); updateTrqHint();
+  log(`Kt set to ${S.kt} N·m/A, push friction ${S.i0} A`, 'sys');
+};
+$('calClear').onclick = () => { restoreLimits(); cal = blankCal(); store.set('cal2', cal); renderCal(); };
 renderCal();
 
 // ---------------------------------------------------------------- controls
@@ -566,13 +589,14 @@ $('trqGo').onclick = () => send('T' + $('trqVal').value);
 $('trqStop').onclick = () => send('T0');
 $('trqVal').addEventListener('input', updateTrqHint); $('trqSlider').addEventListener('input', updateTrqHint);
 function updateTrqHint() {
-  const a = parseFloat($('trqVal').value) || 0, tau = a * S.kt, g = Math.abs(tau) / (S.lever / 1000) / 9.81 * 1000;
-  $('trqHint').textContent = `≈ ${tau.toFixed(3)} N·m at the output (${g.toFixed(0)} g at ${S.lever} mm), before friction`;
+  const a = parseFloat($('trqVal').value) || 0, tau = Math.sign(a) * S.kt * Math.max(0, Math.abs(a) - S.i0);
+  const g = Math.abs(tau) / (S.lever / 1000) / 9.81 * 1000;
+  $('trqHint').textContent = `≈ ${tau.toFixed(3)} N·m on a load (${g.toFixed(0)} g at ${S.lever} mm); about ${S.i0} A goes to friction`;
 }
 updateTrqHint();
 $('capCGo').onclick = () => send('C' + $('capC').value);
 $('capVGo').onclick = () => send('QV' + $('capV').value);
-$('btnStop').onclick = () => { if (learn) learn.abort = true; send('E0'); };
+$('btnStop').onclick = () => { if (learn) learn.abort = true; send('E0'); restoreLimits(); };
 $('btnEnable').onclick = () => { const out = app.last ? app.last.out : 0; send('E1'); send('B' + fmt(out, 1)); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') $('btnStop').click(); });
 $('cmdIn').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.value.trim()) { send(e.target.value.trim()); e.target.value = ''; } });
