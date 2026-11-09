@@ -4,7 +4,7 @@ A quasi-direct-drive robot joint built from an MKS 5010 360 KV gimbal motor and 
 
 <img src="docs/images/actuator-arm-a1.png" alt="The actuator with Arm A1 and the scale pusher" width="420"> <img src="docs/images/gearbox-cutaway.png" alt="Cutaway of the V2 gearbox" width="420">
 
-The full build and usage guide is [docs/QDD5010 V2 Guide.pdf](docs/QDD5010%20V2%20Guide.pdf).
+The full build and usage guide is [docs/QDD5010 Actuator Guide.pdf](docs/QDD5010%20Actuator%20Guide.pdf).
 
 ## Hardware
 
@@ -19,7 +19,7 @@ The full build and usage guide is [docs/QDD5010 V2 Guide.pdf](docs/QDD5010%20V2%
 | --- | --- |
 | `Code/QDD5010/QDD5010.ino` | Firmware: FOC current control with feedforward, angle / speed / torque modes, serial commands and telemetry |
 | `Code/WebApp/` | Browser console: drive modes, force readout, live charts, a 3D view, contact detection and torque calibration |
-| `docs/QDD5010 V2 Guide.pdf` | Full build and usage guide: parts, assembly, wiring, firmware, web console, tuning, test results and torque calibration |
+| `docs/QDD5010 Actuator Guide.pdf` | Full build and usage guide: parts, assembly, wiring, firmware, web console, tuning, test results and torque calibration |
 | `CAD/V2/` | FreeCAD model of the V2 gearbox and the arms, with 3MF/STL files ready to print |
 
 ## Firmware
